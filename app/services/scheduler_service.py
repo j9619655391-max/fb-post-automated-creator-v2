@@ -1,55 +1,37 @@
-"""Scheduler service: executes only user-scheduled posts; enforces safety limits."""
 from datetime import datetime, timezone, timedelta
 from typing import List, Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.models.content import Content, ContentStatus
 from app.models.meta_page import MetaPage
-from app.models.scheduled_post import ScheduledPost, ScheduledPostStatus
+from app.models.linkedin_account import LinkedInAccount
+from app.models.scheduled_post import ScheduledPlatform, ScheduledPost, ScheduledPostStatus
 from app.models.posting_preference import PostingPreference
-from app.services.facebook_pages_service import post_to_page
 from app.services.audit_service import AuditService
+from app.services.publishing_policy import evaluate_target_policy
+from app.services.scheduled_execution_service import ScheduledExecutionError, execute_scheduled_post
 
 DEFAULT_COOLDOWN_MINUTES = 60
 DEFAULT_MAX_POSTS_PER_DAY = 10
 
 
-def create_scheduled_post(
-    db: Session,
-    content_id: int,
-    meta_page_id: int,
-    scheduled_at: datetime,
-    user_id: int,
-) -> Optional[ScheduledPost]:
-    """
-    Create a scheduled post. Content must be APPROVED; page must belong to user.
-    Returns ScheduledPost or None if validation fails.
-    """
-    content = db.query(Content).filter(Content.id == content_id).first()
-    if not content or content.status != ContentStatus.APPROVED:
-        return None
-    page = db.query(MetaPage).filter(MetaPage.id == meta_page_id, MetaPage.user_id == user_id).first()
-    if not page:
-        return None
-    sp = ScheduledPost(
-        content_id=content_id,
-        meta_page_id=meta_page_id,
-        scheduled_at=scheduled_at,
-        status=ScheduledPostStatus.PENDING,
-    )
-    db.add(sp)
-    db.commit()
-    db.refresh(sp)
-    return sp
+def _owned_target_filter(user_id: int):
+    return or_(MetaPage.user_id == user_id, LinkedInAccount.user_id == user_id)
+
+
+def create_scheduled_post(db: Session, content_id: int, meta_page_id: int, scheduled_at: datetime, user_id: int):
+    from app.scheduler import schedule_facebook_post
+    return schedule_facebook_post(db, content_id, meta_page_id, scheduled_at, user_id)
 
 
 def get_scheduled_post(db: Session, scheduled_post_id: int, user_id: int) -> Optional[ScheduledPost]:
-    """Get a scheduled post by id if it belongs to user's page. Returns None if not found/not owned."""
     return (
         db.query(ScheduledPost)
-        .join(MetaPage, ScheduledPost.meta_page_id == MetaPage.id)
-        .filter(ScheduledPost.id == scheduled_post_id, MetaPage.user_id == user_id)
+        .outerjoin(MetaPage, ScheduledPost.meta_page_id == MetaPage.id)
+        .outerjoin(LinkedInAccount, ScheduledPost.linkedin_account_id == LinkedInAccount.id)
+        .filter(ScheduledPost.id == scheduled_post_id, _owned_target_filter(user_id))
         .first()
     )
 
@@ -59,20 +41,23 @@ def list_scheduled_posts(
     user_id: int,
     status: Optional[ScheduledPostStatus] = None,
     meta_page_id: Optional[int] = None,
+    linkedin_account_id: Optional[int] = None,
     skip: int = 0,
     limit: int = 100,
 ) -> List[ScheduledPost]:
-    """List scheduled posts for user's pages only."""
-    q = (
+    query = (
         db.query(ScheduledPost)
-        .join(MetaPage, ScheduledPost.meta_page_id == MetaPage.id)
-        .filter(MetaPage.user_id == user_id)
+        .outerjoin(MetaPage, ScheduledPost.meta_page_id == MetaPage.id)
+        .outerjoin(LinkedInAccount, ScheduledPost.linkedin_account_id == LinkedInAccount.id)
+        .filter(_owned_target_filter(user_id))
     )
     if status is not None:
-        q = q.filter(ScheduledPost.status == status)
+        query = query.filter(ScheduledPost.status == status)
     if meta_page_id is not None:
-        q = q.filter(ScheduledPost.meta_page_id == meta_page_id)
-    return q.order_by(ScheduledPost.scheduled_at.desc()).offset(skip).limit(limit).all()
+        query = query.filter(ScheduledPost.meta_page_id == meta_page_id)
+    if linkedin_account_id is not None:
+        query = query.filter(ScheduledPost.linkedin_account_id == linkedin_account_id)
+    return query.order_by(ScheduledPost.scheduled_at.desc()).offset(skip).limit(limit).all()
 
 
 def set_posting_preference(
@@ -82,157 +67,114 @@ def set_posting_preference(
     cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES,
     max_posts_per_day: int = DEFAULT_MAX_POSTS_PER_DAY,
 ):
-    """Create or update posting preference for a page (safety limits). Page must belong to user."""
     page = db.query(MetaPage).filter(MetaPage.id == meta_page_id, MetaPage.user_id == user_id).first()
     if not page:
         return None
     pref = db.query(PostingPreference).filter(PostingPreference.meta_page_id == meta_page_id).first()
-    if pref:
-        pref.cooldown_minutes = cooldown_minutes
-        pref.max_posts_per_day = max_posts_per_day
-    else:
-        pref = PostingPreference(
-            meta_page_id=meta_page_id,
-            cooldown_minutes=cooldown_minutes,
-            max_posts_per_day=max_posts_per_day,
-        )
+    if not pref:
+        pref = PostingPreference(meta_page_id=meta_page_id)
         db.add(pref)
+    pref.cooldown_minutes = cooldown_minutes
+    pref.max_posts_per_day = max_posts_per_day
+    db.commit()
+    db.refresh(pref)
+    return pref
+
+
+def set_linkedin_posting_preference(
+    db: Session,
+    linkedin_account_id: int,
+    user_id: int,
+    cooldown_minutes: int = DEFAULT_COOLDOWN_MINUTES,
+    max_posts_per_day: int = DEFAULT_MAX_POSTS_PER_DAY,
+):
+    account = db.query(LinkedInAccount).filter(
+        LinkedInAccount.id == linkedin_account_id,
+        LinkedInAccount.user_id == user_id,
+    ).first()
+    if not account:
+        return None
+    pref = db.query(PostingPreference).filter(PostingPreference.linkedin_account_id == linkedin_account_id).first()
+    if not pref:
+        pref = PostingPreference(linkedin_account_id=linkedin_account_id)
+        db.add(pref)
+    pref.cooldown_minutes = cooldown_minutes
+    pref.max_posts_per_day = max_posts_per_day
     db.commit()
     db.refresh(pref)
     return pref
 
 
 def get_posting_preference(db: Session, meta_page_id: int, user_id: int):
-    """Get posting preference for a page if it belongs to user. Returns None if no preference or not owned."""
     page = db.query(MetaPage).filter(MetaPage.id == meta_page_id, MetaPage.user_id == user_id).first()
     if not page:
         return None
     return db.query(PostingPreference).filter(PostingPreference.meta_page_id == meta_page_id).first()
 
 
+def get_linkedin_posting_preference(db: Session, linkedin_account_id: int, user_id: int):
+    account = db.query(LinkedInAccount).filter(
+        LinkedInAccount.id == linkedin_account_id,
+        LinkedInAccount.user_id == user_id,
+    ).first()
+    if not account:
+        return None
+    return db.query(PostingPreference).filter(PostingPreference.linkedin_account_id == linkedin_account_id).first()
+
+
 def cancel_scheduled_post(db: Session, scheduled_post_id: int, user_id: int) -> bool:
-    """Cancel a PENDING scheduled post if owned by user. Returns True if cancelled."""
-    sp = (
-        db.query(ScheduledPost)
-        .join(MetaPage, ScheduledPost.meta_page_id == MetaPage.id)
-        .filter(ScheduledPost.id == scheduled_post_id, MetaPage.user_id == user_id)
-        .first()
-    )
-    if not sp or sp.status != ScheduledPostStatus.PENDING:
+    sp = get_scheduled_post(db, scheduled_post_id, user_id)
+    if not sp or sp.status not in {ScheduledPostStatus.PENDING, ScheduledPostStatus.RETRYING}:
         return False
     sp.status = ScheduledPostStatus.CANCELLED
     db.commit()
     return True
 
 
-def _get_preference(db: Session, meta_page_id: int) -> tuple[int, int]:
-    """Return (cooldown_minutes, max_posts_per_day) for page; defaults if no preference."""
-    pref = db.query(PostingPreference).filter(PostingPreference.meta_page_id == meta_page_id).first()
-    if pref:
-        return pref.cooldown_minutes, pref.max_posts_per_day
-    return DEFAULT_COOLDOWN_MINUTES, DEFAULT_MAX_POSTS_PER_DAY
-
-
 def _check_cooldown(db: Session, meta_page_id: int, now: datetime) -> bool:
-    """True if last post on this page was at least cooldown_minutes ago (or no posts)."""
-    cooldown_min, _ = _get_preference(db, meta_page_id)
-    last = (
-        db.query(ScheduledPost)
-        .filter(
-            ScheduledPost.meta_page_id == meta_page_id,
-            ScheduledPost.status == ScheduledPostStatus.POSTED,
-            ScheduledPost.posted_at.isnot(None),
-        )
-        .order_by(ScheduledPost.posted_at.desc())
-        .first()
-    )
-    if not last or not last.posted_at:
-        return True
-    return (now - last.posted_at.replace(tzinfo=timezone.utc)).total_seconds() >= cooldown_min * 60
+    return evaluate_target_policy(db, ScheduledPlatform.FACEBOOK, meta_page_id, now).error_code != "TARGET_COOLDOWN"
 
 
 def _check_max_per_day(db: Session, meta_page_id: int, day_start: datetime) -> bool:
-    """True if posts today on this page are below max_posts_per_day."""
-    _, max_per_day = _get_preference(db, meta_page_id)
-    day_end = day_start + timedelta(days=1)
-    count = (
-        db.query(ScheduledPost)
-        .filter(
-            ScheduledPost.meta_page_id == meta_page_id,
-            ScheduledPost.status == ScheduledPostStatus.POSTED,
-            ScheduledPost.posted_at >= day_start,
-            ScheduledPost.posted_at < day_end,
-        )
-        .count()
-    )
-    return count < max_per_day
+    decision = evaluate_target_policy(db, ScheduledPlatform.FACEBOOK, meta_page_id, day_start)
+    return decision.error_code != "MAX_POSTS_PER_DAY"
 
 
 def process_due_posts(db: Session) -> dict:
-    """
-    Find PENDING scheduled posts with scheduled_at <= now; enforce cooldown/max per day; post to FB.
-    Returns {"posted": n, "failed": n, "skipped": n}.
-    """
+    """Synchronous fallback using the same provider-neutral executor as Celery."""
     now = datetime.now(timezone.utc)
-    due = (
-        db.query(ScheduledPost)
-        .filter(
-            ScheduledPost.status == ScheduledPostStatus.PENDING,
-            ScheduledPost.scheduled_at <= now,
-        )
-        .order_by(ScheduledPost.scheduled_at)
-        .all()
-    )
-    posted = 0
-    failed = 0
-    skipped = 0
-    day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    due = db.query(ScheduledPost).filter(
+        ScheduledPost.status == ScheduledPostStatus.PENDING,
+        ScheduledPost.scheduled_at <= now,
+    ).order_by(ScheduledPost.scheduled_at).all()
+    posted = failed = skipped = 0
     for sp in due:
-        if not _check_cooldown(db, sp.meta_page_id, now):
-            skipped += 1
-            continue
-        if not _check_max_per_day(db, sp.meta_page_id, day_start):
-            skipped += 1
-            continue
-        content = db.query(Content).filter(Content.id == sp.content_id).first()
-        if not content:
+        target_id = sp.meta_page_id if sp.platform in {ScheduledPlatform.FACEBOOK, ScheduledPlatform.INSTAGRAM} else sp.linkedin_account_id
+        if not target_id:
             sp.status = ScheduledPostStatus.FAILED
-            sp.failure_reason = "Content not found"
-            AuditService.log_action(
-                db, "scheduled_post.failed", "scheduled_post", sp.id, None,
-                "Scheduled post failed: content not found", {"scheduled_post_id": sp.id},
-            )
+            sp.failure_reason = "Scheduled target is missing"
+            sp.last_error_code = "INVALID_TARGET"
             failed += 1
             db.commit()
             continue
-        page = db.query(MetaPage).filter(MetaPage.id == sp.meta_page_id).first()
-        if not page:
-            sp.status = ScheduledPostStatus.FAILED
-            sp.failure_reason = "Page not found"
-            AuditService.log_action(
-                db, "scheduled_post.failed", "scheduled_post", sp.id, None,
-                "Scheduled post failed: page not found", {"scheduled_post_id": sp.id},
-            )
-            failed += 1
-            db.commit()
+        policy = evaluate_target_policy(db, sp.platform, target_id, now)
+        if not policy.allowed:
+            skipped += 1
             continue
         try:
-            post_to_page(db, sp.meta_page_id, page.user_id, content.body)
+            sp.status = ScheduledPostStatus.PROCESSING
+            sp.attempt_count = (sp.attempt_count or 0) + 1
+            db.commit()
+            execute_scheduled_post(db, sp)
             sp.status = ScheduledPostStatus.POSTED
             sp.posted_at = now
-            sp.failure_reason = None
-            AuditService.log_action(
-                db, "scheduled_post.posted", "scheduled_post", sp.id, page.user_id,
-                "Post published to Facebook page", {"content_id": content.id, "meta_page_id": sp.meta_page_id},
-            )
+            sp.completed_at = now
             posted += 1
-        except Exception as e:
+        except ScheduledExecutionError as exc:
             sp.status = ScheduledPostStatus.FAILED
-            sp.failure_reason = str(e)[:512]
-            AuditService.log_action(
-                db, "scheduled_post.failed", "scheduled_post", sp.id, page.user_id,
-                f"Scheduled post failed: {str(e)[:200]}", {"scheduled_post_id": sp.id},
-            )
+            sp.failure_reason = str(exc)[:512]
+            sp.last_error_code = exc.error_code
+            sp.completed_at = now
             failed += 1
         db.commit()
     return {"posted": posted, "failed": failed, "skipped": skipped}

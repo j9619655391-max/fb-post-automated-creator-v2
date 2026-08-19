@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from sqlalchemy.orm import Session
 
 from app.models.posting_preference import PostingPreference
-from app.models.scheduled_post import ScheduledPost, ScheduledPostStatus
+from app.models.scheduled_post import ScheduledPlatform, ScheduledPost, ScheduledPostStatus
 
 DEFAULT_COOLDOWN_MINUTES = 60
 DEFAULT_MAX_POSTS_PER_DAY = 10
@@ -18,24 +18,41 @@ class PolicyDecision:
     error_code: str | None = None
 
 
-def get_meta_page_limits(db: Session, meta_page_id: int) -> tuple[int, int]:
-    preference = db.query(PostingPreference).filter(PostingPreference.meta_page_id == meta_page_id).first()
+def get_target_limits(db: Session, platform: ScheduledPlatform, target_id: int) -> tuple[int, int]:
+    query = db.query(PostingPreference)
+    if platform in {ScheduledPlatform.FACEBOOK, ScheduledPlatform.INSTAGRAM}:
+        preference = query.filter(PostingPreference.meta_page_id == target_id).first()
+    else:
+        preference = query.filter(PostingPreference.linkedin_account_id == target_id).first()
     if preference:
         return preference.cooldown_minutes, preference.max_posts_per_day
     return DEFAULT_COOLDOWN_MINUTES, DEFAULT_MAX_POSTS_PER_DAY
 
 
-def evaluate_meta_page_policy(db: Session, meta_page_id: int, now: datetime | None = None) -> PolicyDecision:
-    """Enforce page cooldown and daily cap for Facebook/Instagram Meta-page posts."""
+def _target_filter(query, platform: ScheduledPlatform, target_id: int):
+    query = query.filter(ScheduledPost.platform == platform)
+    if platform in {ScheduledPlatform.FACEBOOK, ScheduledPlatform.INSTAGRAM}:
+        return query.filter(ScheduledPost.meta_page_id == target_id)
+    return query.filter(ScheduledPost.linkedin_account_id == target_id)
+
+
+def evaluate_target_policy(
+    db: Session,
+    platform: ScheduledPlatform,
+    target_id: int,
+    now: datetime | None = None,
+) -> PolicyDecision:
+    """Enforce cooldown and daily caps for one provider-specific scheduled target."""
     now = now or datetime.now(timezone.utc)
     if not now.tzinfo:
         now = now.replace(tzinfo=timezone.utc)
-    cooldown_minutes, max_posts_per_day = get_meta_page_limits(db, meta_page_id)
+    cooldown_minutes, max_posts_per_day = get_target_limits(db, platform, target_id)
 
     last_post = (
-        db.query(ScheduledPost)
+        _target_filter(
+            db.query(ScheduledPost), platform, target_id
+        )
         .filter(
-            ScheduledPost.meta_page_id == meta_page_id,
             ScheduledPost.status == ScheduledPostStatus.POSTED,
             ScheduledPost.posted_at.isnot(None),
         )
@@ -50,17 +67,18 @@ def evaluate_meta_page_policy(db: Session, meta_page_id: int, now: datetime | No
         if cooldown_until > now:
             return PolicyDecision(
                 allowed=False,
-                reason=f"Page cooldown active until {cooldown_until.isoformat()}",
+                reason=f"{platform.value} target cooldown active until {cooldown_until.isoformat()}",
                 retry_at=cooldown_until,
-                error_code="PAGE_COOLDOWN",
+                error_code="TARGET_COOLDOWN",
             )
 
     day_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
     day_end = day_start + timedelta(days=1)
     posted_today = (
-        db.query(ScheduledPost)
+        _target_filter(
+            db.query(ScheduledPost), platform, target_id
+        )
         .filter(
-            ScheduledPost.meta_page_id == meta_page_id,
             ScheduledPost.status == ScheduledPostStatus.POSTED,
             ScheduledPost.posted_at >= day_start,
             ScheduledPost.posted_at < day_end,
@@ -70,9 +88,14 @@ def evaluate_meta_page_policy(db: Session, meta_page_id: int, now: datetime | No
     if posted_today >= max_posts_per_day:
         return PolicyDecision(
             allowed=False,
-            reason=f"Daily page limit of {max_posts_per_day} posts reached",
+            reason=f"Daily {platform.value} limit of {max_posts_per_day} posts reached",
             retry_at=day_end + timedelta(seconds=1),
             error_code="MAX_POSTS_PER_DAY",
         )
 
     return PolicyDecision(allowed=True)
+
+
+def evaluate_meta_page_policy(db: Session, meta_page_id: int, now: datetime | None = None) -> PolicyDecision:
+    """Backward-compatible Facebook/Instagram wrapper."""
+    return evaluate_target_policy(db, ScheduledPlatform.FACEBOOK, meta_page_id, now)

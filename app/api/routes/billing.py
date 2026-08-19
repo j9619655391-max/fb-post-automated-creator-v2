@@ -71,6 +71,22 @@ async def create_portal(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/usage")
+async def get_generation_usage(
+    organization_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user),
+):
+    """Return AI generation token/cost usage for an organization admin."""
+    org_service = OrgService(db)
+    org = org_service.get_org(organization_id)
+    if not org:
+        raise HTTPException(status_code=404, detail="Organization not found")
+    if not org_service.verify_admin_access(org.id, current_user.id):
+        raise HTTPException(status_code=403, detail="Only owners and admins can view billing usage")
+    return BillingService(db).get_generation_usage(org)
+
+
 @router.post("/webhook")
 async def stripe_webhook(
     request: Request,

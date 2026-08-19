@@ -6,6 +6,7 @@ from app.core.token_crypto import decrypt_token
 from app.models.content import Content
 from app.models.linkedin_account import LinkedInAccount
 from app.models.content_execution import ContentPublishStatus, PublishStatusEnum
+from app.services.publish_errors import classify_publish_failure
 
 
 def sync_linkedin_accounts(db: Session, user_id: int) -> int:
@@ -134,8 +135,9 @@ def publish_to_linkedin(
             publish_status.platform_post_id = platform_post_id
             publish_status.status = PublishStatusEnum.POSTED
         except Exception as e:
+            classification = classify_publish_failure(e)
             publish_status.status = PublishStatusEnum.FAILED
-            publish_status.error_message = str(e)
+            publish_status.error_message = f"{classification.code}: {classification.message}"
             
         db.commit()
 

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { listContent, type Content } from '../api/content';
-import { listScheduledPosts, cancelScheduledPost, type ScheduledPost } from '../api/scheduledPosts';
+import { listScheduledPosts, cancelScheduledPost, retryScheduledPost, type ScheduledPost } from '../api/scheduledPosts';
 
 function scheduleStatusLabel(status: string): string {
   switch (status) {
@@ -57,13 +57,29 @@ export default function Dashboard() {
   const approved = byStatus['approved'] ?? 0;
   const draft = byStatus['draft'] ?? 0;
 
+  async function refreshScheduled() {
+    setScheduled(await listScheduledPosts({ limit: 20 }));
+  }
+
+  async function handleRetry(postId: number) {
+    if (!isAuthenticated) return;
+    try {
+      await retryScheduledPost(postId);
+      await refreshScheduled();
+    } catch (err) {
+      alert('Failed to retry scheduled post');
+    }
+  }
+
+  function handleReauthenticate() {
+    window.location.assign('/platforms');
+  }
+
   async function handleCancel(postId: number) {
     if (!isAuthenticated || !window.confirm('Cancel this scheduled post?')) return;
     try {
       await cancelScheduledPost(postId);
-      // Refresh list
-      const updated = await listScheduledPosts({ limit: 20 });
-      setScheduled(updated);
+      await refreshScheduled();
     } catch (err) {
       alert('Failed to cancel post');
     }
@@ -94,7 +110,7 @@ export default function Dashboard() {
             {scheduled.map((sp) => (
               <li key={sp.id} className="block px-4 py-3 hover:bg-slate-50 flex items-center justify-between gap-2">
                 <Link to={`/content/${sp.content_id}`} className="flex-1 flex items-center justify-between gap-2">
-                  <span className="text-slate-900">Content #{sp.content_id}</span>
+                  <span className="text-slate-900">Content #{sp.content_id} · {sp.platform}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500 text-sm shrink-0">
                       {new Date(sp.scheduled_at).toLocaleString()}
@@ -104,14 +120,32 @@ export default function Dashboard() {
                     </span>
                   </div>
                 </Link>
-                {sp.status === 'pending' && (
-                  <button
-                    onClick={() => handleCancel(sp.id)}
-                    className="ml-2 text-xs border border-slate-300 rounded px-2 py-1 text-slate-600 hover:bg-slate-100"
-                  >
-                    Cancel
-                  </button>
-                )}
+                <div className="flex items-center gap-2 ml-2 shrink-0">
+                  {(sp.status === 'failed' || sp.status === 'dead_letter') && sp.last_error_code === 'AUTH_REQUIRED' && (
+                    <button
+                      onClick={handleReauthenticate}
+                      className="text-xs border border-amber-300 rounded px-2 py-1 text-amber-700 hover:bg-amber-50"
+                    >
+                      Re-authenticate
+                    </button>
+                  )}
+                  {(sp.status === 'failed' || sp.status === 'dead_letter') && (
+                    <button
+                      onClick={() => handleRetry(sp.id)}
+                      className="text-xs border border-indigo-300 rounded px-2 py-1 text-indigo-700 hover:bg-indigo-50"
+                    >
+                      Retry job
+                    </button>
+                  )}
+                  {(sp.status === 'pending' || sp.status === 'retrying') && (
+                    <button
+                      onClick={() => handleCancel(sp.id)}
+                      className="text-xs border border-slate-300 rounded px-2 py-1 text-slate-600 hover:bg-slate-100"
+                    >
+                      Cancel
+                    </button>
+                  )}
+                </div>
               </li>
             ))}
           </ul>

@@ -1,27 +1,42 @@
-"""Pydantic schemas for scheduled posts."""
-from pydantic import BaseModel, Field
 from datetime import datetime
 from typing import Optional
-from app.models.scheduled_post import ScheduledPostStatus
+
+from pydantic import BaseModel, Field, model_validator
+
+from app.models.scheduled_post import ScheduledPlatform, ScheduledPostStatus
 
 
 class ScheduledPostCreate(BaseModel):
-    """Schema for creating a scheduled post."""
     content_id: int = Field(..., description="Approved content ID")
-    meta_page_id: int = Field(..., description="Page to post to")
+    platform: ScheduledPlatform = Field(ScheduledPlatform.FACEBOOK, description="Publishing provider")
+    meta_page_id: Optional[int] = Field(None, description="Meta Page target for Facebook or Instagram")
+    linkedin_account_id: Optional[int] = Field(None, description="LinkedIn account target")
     scheduled_at: datetime = Field(..., description="When to post (UTC)")
+
+    @model_validator(mode="after")
+    def validate_target(self):
+        meta_platform = self.platform in {ScheduledPlatform.FACEBOOK, ScheduledPlatform.INSTAGRAM}
+        if meta_platform and not self.meta_page_id:
+            raise ValueError("meta_page_id is required for Facebook or Instagram")
+        if self.platform == ScheduledPlatform.LINKEDIN and not self.linkedin_account_id:
+            raise ValueError("linkedin_account_id is required for LinkedIn")
+        if self.platform == ScheduledPlatform.LINKEDIN and self.meta_page_id:
+            raise ValueError("meta_page_id cannot be set for LinkedIn")
+        if meta_platform and self.linkedin_account_id:
+            raise ValueError("linkedin_account_id cannot be set for Facebook or Instagram")
+        return self
 
 
 class ScheduledPostUpdate(BaseModel):
-    """Schema for updating (e.g. cancel) a scheduled post."""
     status: Optional[ScheduledPostStatus] = None
 
 
 class ScheduledPostResponse(BaseModel):
-    """Schema for scheduled post response."""
     id: int
     content_id: int
-    meta_page_id: int
+    platform: ScheduledPlatform
+    meta_page_id: Optional[int] = None
+    linkedin_account_id: Optional[int] = None
     scheduled_at: datetime
     status: ScheduledPostStatus
     posted_at: Optional[datetime] = None
@@ -37,15 +52,14 @@ class ScheduledPostResponse(BaseModel):
 
 
 class PostingPreferenceCreate(BaseModel):
-    """Schema for creating/updating posting preference (safety limits)."""
     cooldown_minutes: int = Field(60, ge=1, le=1440, description="Min minutes between posts")
-    max_posts_per_day: int = Field(10, ge=1, le=50, description="Max posts per day per page")
+    max_posts_per_day: int = Field(10, ge=1, le=50, description="Max posts per day per target")
 
 
 class PostingPreferenceResponse(BaseModel):
-    """Schema for posting preference response."""
     id: int
-    meta_page_id: int
+    meta_page_id: Optional[int] = None
+    linkedin_account_id: Optional[int] = None
     cooldown_minutes: int
     max_posts_per_day: int
     created_at: datetime

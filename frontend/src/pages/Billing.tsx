@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useOrg } from '../context/OrgContext';
-import { createCheckout, createPortal } from '../api/billing';
+import { createCheckout, createPortal, getGenerationUsage, type GenerationUsageSummary } from '../api/billing';
 
 const PLANS = [
     {
@@ -30,6 +30,17 @@ export default function Billing() {
     const { currentOrg } = useOrg();
     const [loading, setLoading] = useState<string | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [usage, setUsage] = useState<GenerationUsageSummary | null>(null);
+
+    useEffect(() => {
+        if (!currentOrg) {
+            setUsage(null);
+            return;
+        }
+        getGenerationUsage(currentOrg.id)
+            .then(setUsage)
+            .catch(() => setUsage(null));
+    }, [currentOrg]);
 
     const handleCheckout = async (priceId: string) => {
         if (!currentOrg) return;
@@ -84,6 +95,21 @@ export default function Billing() {
                     {error}
                 </div>
             )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p className="text-slate-500 text-sm font-bold">AI requests</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">{usage?.requests ?? 0}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p className="text-slate-500 text-sm font-bold">Tokens used</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">{(usage?.total_tokens ?? 0).toLocaleString()}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p className="text-slate-500 text-sm font-bold">Estimated AI cost</p>
+                    <p className="text-2xl font-black text-indigo-600 mt-1">${(usage?.estimated_cost_usd ?? 0).toFixed(4)}</p>
+                </div>
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
                 {PLANS.map((plan) => {

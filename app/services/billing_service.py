@@ -1,5 +1,7 @@
 import stripe
 from sqlalchemy.orm import Session
+from sqlalchemy import func
+from app.models.content_generation_usage import ContentGenerationUsage
 from app.models.organization import Organization, SubscriptionTier
 from app.core.config import settings
 from datetime import datetime
@@ -121,6 +123,61 @@ class BillingService:
                 org.subscription_ends_at = datetime.fromtimestamp(end_timestamp)
                 
             self.db.commit()
+
+    def get_generation_usage(self, org: Organization, limit: int = 20):
+        """Return organization-scoped AI token and estimated cost usage."""
+        base = self.db.query(ContentGenerationUsage).filter(
+            ContentGenerationUsage.organization_id == org.id
+        )
+        totals = self.db.query(
+            func.count(ContentGenerationUsage.id),
+            func.coalesce(func.sum(ContentGenerationUsage.prompt_token_count), 0),
+            func.coalesce(func.sum(ContentGenerationUsage.candidates_token_count), 0),
+            func.coalesce(func.sum(ContentGenerationUsage.thoughts_token_count), 0),
+            func.coalesce(func.sum(ContentGenerationUsage.total_token_count), 0),
+            func.coalesce(func.sum(ContentGenerationUsage.cost_usd), 0),
+        ).filter(ContentGenerationUsage.organization_id == org.id).one()
+        by_model = self.db.query(
+            ContentGenerationUsage.provider,
+            ContentGenerationUsage.model,
+            func.count(ContentGenerationUsage.id),
+            func.coalesce(func.sum(ContentGenerationUsage.total_token_count), 0),
+            func.coalesce(func.sum(ContentGenerationUsage.cost_usd), 0),
+        ).filter(ContentGenerationUsage.organization_id == org.id).group_by(
+            ContentGenerationUsage.provider, ContentGenerationUsage.model
+        ).all()
+        recent = base.order_by(ContentGenerationUsage.created_at.desc()).limit(limit).all()
+        return {
+            "organization_id": org.id,
+            "requests": int(totals[0] or 0),
+            "prompt_tokens": int(totals[1] or 0),
+            "candidates_tokens": int(totals[2] or 0),
+            "thoughts_tokens": int(totals[3] or 0),
+            "total_tokens": int(totals[4] or 0),
+            "estimated_cost_usd": float(totals[5] or 0),
+            "by_model": [
+                {
+                    "provider": row[0],
+                    "model": row[1],
+                    "requests": int(row[2] or 0),
+                    "total_tokens": int(row[3] or 0),
+                    "estimated_cost_usd": float(row[4] or 0),
+                }
+                for row in by_model
+            ],
+            "recent": [
+                {
+                    "id": usage.id,
+                    "generation_job_id": usage.generation_job_id,
+                    "provider": usage.provider,
+                    "model": usage.model,
+                    "total_tokens": usage.total_token_count,
+                    "estimated_cost_usd": float(usage.cost_usd or 0),
+                    "created_at": usage.created_at,
+                }
+                for usage in recent
+            ],
+        }
 
     def get_org_limits(self, org: Organization):
         """Returns feature limits based on organization tier, with dynamic overrides."""

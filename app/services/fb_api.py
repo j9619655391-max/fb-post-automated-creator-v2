@@ -18,6 +18,7 @@ from app.models.content import Content
 from app.models.meta_page import MetaPage
 from app.models.content_execution import ContentPublishStatus, PublishStatusEnum
 from app.services.facebook_pages_service import post_to_page_and_get_id
+from app.services.publish_errors import classify_publish_failure
 
 
 def publish_to_facebook(
@@ -91,13 +92,15 @@ def publish_to_facebook(
             publish_status.status = PublishStatusEnum.POSTED
         except TokenInvalidError as e:
             publish_status.status = PublishStatusEnum.FAILED
-            publish_status.error_message = "Facebook connection expired or invalid. Please reconnect."
+            publish_status.error_message = "AUTH_REQUIRED: Facebook connection expired or invalid. Please reconnect."
         except ValueError as e:
+            classification = classify_publish_failure(e)
             publish_status.status = PublishStatusEnum.FAILED
-            publish_status.error_message = str(e)
+            publish_status.error_message = f"{classification.code}: {classification.message}"
         except Exception as e:
+            classification = classify_publish_failure(e)
             publish_status.status = PublishStatusEnum.FAILED
-            publish_status.error_message = "Internal processing error."
+            publish_status.error_message = f"{classification.code}: {classification.message}"
             
         db.commit()
 
