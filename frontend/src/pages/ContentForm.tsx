@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { createContent, updateContent, getContent } from '../api/content';
 import { getCategories, generateThemes, type ContentCategory } from '../api/vce';
 import { listPages, type MetaPage } from '../api/metaPages';
+import { listLinkedInAccounts, type LinkedInAccount } from '../api/platforms';
 import { uploadMedia } from '../api/media';
 import { optimizeContent } from '../api/ai';
 import { generateDraft } from '../api/generation';
@@ -32,8 +33,11 @@ export default function ContentForm() {
 
   // Schedule for (new content only): when to publish after approval
   const [scheduleAt, setScheduleAt] = useState('');
+  const [schedulePlatform, setSchedulePlatform] = useState<'facebook' | 'instagram' | 'linkedin'>('facebook');
   const [schedulePageId, setSchedulePageId] = useState<number | ''>('');
+  const [scheduleLinkedInAccountId, setScheduleLinkedInAccountId] = useState<number | ''>('');
   const [pages, setPages] = useState<MetaPage[]>([]);
+  const [linkedinAccounts, setLinkedinAccounts] = useState<LinkedInAccount[]>([]);
 
   // Media state
   const [mediaId, setMediaId] = useState<number | null>(null);
@@ -65,6 +69,7 @@ export default function ContentForm() {
     if (isEdit || !isAuthenticated) return;
     getCategories().then(setCategories).catch(() => setCategories([]));
     listPages(currentOrg?.id).then(setPages).catch(() => setPages([]));
+    listLinkedInAccounts().then(setLinkedinAccounts).catch(() => setLinkedinAccounts([]));
   }, [isEdit, isAuthenticated, currentOrg]);
 
   // Auto-generate themes when category is selected (new content only)
@@ -162,15 +167,31 @@ export default function ContentForm() {
         await updateContent(parseInt(id, 10), { title, body, media_id: mediaId });
         navigate(`/content/${id}`, { replace: true });
       } else {
-        const payload: { title: string; body: string; schedule_at?: string; schedule_meta_page_id?: number; media_id?: number | null; organization_id?: number } = {
+        const payload: {
+          title: string;
+          body: string;
+          schedule_at?: string;
+          schedule_platform?: 'facebook' | 'instagram' | 'linkedin';
+          schedule_meta_page_id?: number;
+          schedule_linkedin_account_id?: number;
+          media_id?: number | null;
+          organization_id?: number;
+        } = {
           title,
           body,
           media_id: mediaId,
           organization_id: currentOrg?.id
         };
-        if (scheduleAt && schedulePageId !== '') {
-          payload.schedule_at = new Date(scheduleAt).toISOString();
-          payload.schedule_meta_page_id = schedulePageId;
+        if (scheduleAt) {
+          if (schedulePlatform === 'linkedin' && scheduleLinkedInAccountId !== '') {
+            payload.schedule_at = new Date(scheduleAt).toISOString();
+            payload.schedule_platform = 'linkedin';
+            payload.schedule_linkedin_account_id = scheduleLinkedInAccountId;
+          } else if (schedulePlatform !== 'linkedin' && schedulePageId !== '') {
+            payload.schedule_at = new Date(scheduleAt).toISOString();
+            payload.schedule_platform = schedulePlatform;
+            payload.schedule_meta_page_id = schedulePageId;
+          }
         }
         const created = await createContent(payload);
         navigate(`/content/${created.id}`, { replace: true });
@@ -253,6 +274,24 @@ export default function ContentForm() {
                 <p className="text-xs text-slate-600">After approval, this content will be published to the selected page at the chosen time.</p>
                 <div className="flex flex-wrap gap-4 items-end">
                   <div>
+                    <label htmlFor="schedule_platform" className="block text-xs font-medium text-slate-600 mb-1">Platform</label>
+                    <select
+                      id="schedule_platform"
+                      value={schedulePlatform}
+                      onChange={(e) => {
+                        const platform = e.target.value as 'facebook' | 'instagram' | 'linkedin';
+                        setSchedulePlatform(platform);
+                        setSchedulePageId('');
+                        setScheduleLinkedInAccountId('');
+                      }}
+                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    >
+                      <option value="facebook">Facebook</option>
+                      <option value="instagram">Instagram</option>
+                      <option value="linkedin">LinkedIn</option>
+                    </select>
+                  </div>
+                  <div>
                     <label htmlFor="schedule_at" className="block text-xs font-medium text-slate-600 mb-1">Date & time</label>
                     <input
                       id="schedule_at"
@@ -263,18 +302,34 @@ export default function ContentForm() {
                     />
                   </div>
                   <div>
-                    <label htmlFor="schedule_page" className="block text-xs font-medium text-slate-600 mb-1">Publish to page</label>
-                    <select
-                      id="schedule_page"
-                      value={schedulePageId === '' ? '' : schedulePageId}
-                      onChange={(e) => setSchedulePageId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                      className="rounded-lg border border-slate-300 px-3 py-2 text-sm min-w-[180px]"
-                    >
-                      <option value="">Select page...</option>
-                      {pages.map((p) => (
-                        <option key={p.id} value={p.id}>{p.page_name || p.page_id}</option>
-                      ))}
-                    </select>
+                    <label htmlFor="schedule_target" className="block text-xs font-medium text-slate-600 mb-1">
+                      {schedulePlatform === 'linkedin' ? 'Publish to account' : schedulePlatform === 'instagram' ? 'Publish to Meta page / Instagram' : 'Publish to page'}
+                    </label>
+                    {schedulePlatform === 'linkedin' ? (
+                      <select
+                        id="schedule_target"
+                        value={scheduleLinkedInAccountId === '' ? '' : scheduleLinkedInAccountId}
+                        onChange={(e) => setScheduleLinkedInAccountId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm min-w-[220px]"
+                      >
+                        <option value="">Select LinkedIn account...</option>
+                        {linkedinAccounts.map((account) => (
+                          <option key={account.id} value={account.id}>{account.name} ({account.account_type})</option>
+                        ))}
+                      </select>
+                    ) : (
+                      <select
+                        id="schedule_target"
+                        value={schedulePageId === '' ? '' : schedulePageId}
+                        onChange={(e) => setSchedulePageId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm min-w-[220px]"
+                      >
+                        <option value="">Select page...</option>
+                        {pages.map((p) => (
+                          <option key={p.id} value={p.id}>{p.page_name || p.page_id}</option>
+                        ))}
+                      </select>
+                    )}
                   </div>
                 </div>
               </div>
@@ -442,7 +497,9 @@ export default function ContentForm() {
                   </div>
                   <div>
                     <div className="text-sm font-bold text-slate-900 leading-tight">
-                      {schedulePageId ? pages.find(p => p.id === schedulePageId)?.page_name || 'Premium Account' : 'Drafting Page'}
+                      {schedulePlatform === 'linkedin'
+                        ? (scheduleLinkedInAccountId ? linkedinAccounts.find((account) => account.id === scheduleLinkedInAccountId)?.name : 'LinkedIn Account')
+                        : (schedulePageId ? pages.find(p => p.id === schedulePageId)?.page_name : 'Drafting Page')}
                     </div>
                     <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
                       Sponsored · <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zM4.5 7.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5z" /></svg>

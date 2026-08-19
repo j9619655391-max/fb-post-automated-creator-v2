@@ -9,6 +9,7 @@ Celery-based scheduler for Facebook post publishing.
 Requires Redis running and Celery worker: celery -A app.scheduler worker -l info
 """
 from datetime import datetime, timedelta, timezone
+import logging
 
 from celery import Celery
 from sqlalchemy.orm import Session
@@ -22,6 +23,8 @@ from app.models.linkedin_account import LinkedInAccount
 from app.services.audit_service import AuditService
 from app.services.publish_errors import classify_publish_failure
 from app.services.scheduled_execution_service import ScheduledExecutionError, execute_scheduled_post
+
+logger = logging.getLogger(__name__)
 
 celery_app = Celery(
     "fb_scheduler",
@@ -135,6 +138,14 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
         sp.attempt_count = (sp.attempt_count or 0) + 1
         sp.next_retry_at = None
         db.commit()
+        logger.info(
+            "scheduled_post.processing",
+            extra={
+                "scheduled_post_id": sp.id,
+                "platform": sp.platform.value,
+                "attempt": sp.attempt_count,
+            },
+        )
 
         try:
             execute_scheduled_post(db, sp)
@@ -143,6 +154,10 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
             sp.failure_reason = None
             sp.completed_at = sp.posted_at
             db.commit()
+            logger.info(
+                "scheduled_post.posted",
+                extra={"scheduled_post_id": sp.id, "platform": sp.platform.value},
+            )
             return {"ok": True, "status": "posted", "platform": sp.platform.value}
         except ScheduledExecutionError as exc:
             classification = classify_publish_failure(exc)
@@ -155,6 +170,14 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
                 sp.completed_at = datetime.now(timezone.utc)
                 sp.next_retry_at = None
                 db.commit()
+                logger.warning(
+                    "scheduled_post.failed_terminal",
+                    extra={
+                        "scheduled_post_id": sp.id,
+                        "platform": sp.platform.value,
+                        "error_code": sp.last_error_code,
+                    },
+                )
                 return {"ok": False, "status": "failed", "reason": sp.failure_reason}
 
             if self.request.retries >= self.max_retries:
@@ -164,6 +187,14 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
                 sp.completed_at = datetime.now(timezone.utc)
                 sp.next_retry_at = None
                 db.commit()
+                logger.error(
+                    "scheduled_post.dead_letter",
+                    extra={
+                        "scheduled_post_id": sp.id,
+                        "platform": sp.platform.value,
+                        "error_code": sp.last_error_code,
+                    },
+                )
                 return {"ok": False, "status": "dead_letter", "reason": sp.failure_reason}
 
             delay = min(
@@ -176,6 +207,15 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
             sp.failure_reason = str(exc)[:512]
             sp.next_retry_at = datetime.now(timezone.utc) + timedelta(seconds=delay)
             db.commit()
+            logger.warning(
+                "scheduled_post.retrying",
+                extra={
+                    "scheduled_post_id": sp.id,
+                    "platform": sp.platform.value,
+                    "error_code": sp.last_error_code,
+                    "retry_delay_seconds": delay,
+                },
+            )
             raise self.retry(exc=exc, countdown=delay)
         except Exception as exc:
             classification = classify_publish_failure(exc)
@@ -186,6 +226,14 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
                 sp.completed_at = datetime.now(timezone.utc)
                 sp.next_retry_at = None
                 db.commit()
+                logger.warning(
+                    "scheduled_post.failed_terminal",
+                    extra={
+                        "scheduled_post_id": sp.id,
+                        "platform": sp.platform.value,
+                        "error_code": sp.last_error_code,
+                    },
+                )
                 return {"ok": False, "status": "failed", "reason": classification.message}
             if self.request.retries >= self.max_retries:
                 sp.status = ScheduledPostStatus.DEAD_LETTER
@@ -194,6 +242,14 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
                 sp.completed_at = datetime.now(timezone.utc)
                 sp.next_retry_at = None
                 db.commit()
+                logger.error(
+                    "scheduled_post.dead_letter",
+                    extra={
+                        "scheduled_post_id": sp.id,
+                        "platform": sp.platform.value,
+                        "error_code": sp.last_error_code,
+                    },
+                )
                 return {"ok": False, "status": "dead_letter", "reason": classification.message}
             delay = min(3600, 2 ** max(0, self.request.retries))
             sp.status = ScheduledPostStatus.RETRYING

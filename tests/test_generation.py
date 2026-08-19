@@ -78,3 +78,79 @@ def test_generate_draft_requires_authentication(client, api):
         json={"category_name": "Motivation"},
     )
     assert response.status_code == 401
+
+
+def test_org_generation_quota_blocks_provider_call(db, monkeypatch):
+    from pytest import raises
+    from app.models.content_generation import ContentGenerationJob, GenerationStatus
+    from app.models.content_generation_usage import ContentGenerationUsage
+    from app.models.organization import Organization, OrganizationMember, OrganizationRole
+    from app.models.user import User
+    from app.services.content_generation_service import GenerationQuotaExceeded
+
+    user = User(
+        username="quota-user",
+        email="quota-user@example.com",
+        full_name="Quota User",
+        hashed_password="not-a-real-password-hash",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+
+    organization = Organization(
+        name="Quota Workspace",
+        slug="quota-workspace",
+        created_by_id=user.id,
+    )
+    db.add(organization)
+    db.commit()
+    db.refresh(organization)
+    db.add(OrganizationMember(
+        organization_id=organization.id,
+        user_id=user.id,
+        role=OrganizationRole.OWNER,
+    ))
+
+    job = ContentGenerationJob(
+        organization_id=organization.id,
+        requested_by_id=user.id,
+        category_name="Motivation",
+        model="gemini-2.5-flash",
+        provider="gemini",
+        status=GenerationStatus.SUCCEEDED,
+        idempotency_key="quota-seed-001",
+    )
+    db.add(job)
+    db.flush()
+    db.add(ContentGenerationUsage(
+        generation_job_id=job.id,
+        organization_id=organization.id,
+        requested_by_id=user.id,
+        provider="gemini",
+        model="gemini-2.5-flash",
+        total_token_count=150,
+    ))
+    db.commit()
+
+    monkeypatch.setattr(
+        "app.services.settings_service.SettingsService.get_ai_quota_limits",
+        lambda _self, _tier: {
+            "max_ai_requests_per_month": 1,
+            "max_ai_tokens_per_month": 100_000,
+        },
+    )
+    monkeypatch.setattr(
+        content_generation_service,
+        "get_client",
+        lambda: (_ for _ in ()).throw(AssertionError("provider must not be called")),
+    )
+
+    with raises(GenerationQuotaExceeded, match="Monthly AI requests quota exceeded"):
+        content_generation_service.generate_and_persist_draft(
+            db,
+            user.id,
+            category_name="Motivation",
+            organization_id=organization.id,
+            idempotency_key="quota-request-001",
+        )

@@ -23,7 +23,9 @@ class ContentCreate(ContentBase):
     """Schema for creating content."""
     organization_id: Optional[int] = Field(None, description="Optional: organization ID for team collaboration")
     schedule_at: Optional[datetime] = Field(None, description="Optional: when to publish (UTC); used after approval")
-    schedule_meta_page_id: Optional[int] = Field(None, description="Optional: page to publish to when schedule_at is set")
+    schedule_platform: Optional[str] = Field(None, description="Optional: facebook, instagram, or linkedin")
+    schedule_meta_page_id: Optional[int] = Field(None, description="Optional: Meta page to publish to when schedule_at is set")
+    schedule_linkedin_account_id: Optional[int] = Field(None, description="Optional: LinkedIn account to publish to when schedule_at is set")
     media_id: Optional[int] = Field(None, description="Optional: associated media file ID")
 
 class ContentUpdate(BaseModel):
@@ -44,7 +46,9 @@ class ContentResponse(ContentBase):
     updated_at: Optional[datetime]
     approved_at: Optional[datetime]
     schedule_at: Optional[datetime] = None
+    schedule_platform: Optional[str] = None
     schedule_meta_page_id: Optional[int] = None
+    schedule_linkedin_account_id: Optional[int] = None
     media_id: Optional[int] = None
     generated_by_ai: bool = False
     generation_job_id: Optional[int] = None

@@ -32,3 +32,34 @@ The existing scheduled-post schema has a Meta-page target and the Celery executo
 ## Operational requirements
 
 Before deployment, run `alembic upgrade head` against the target PostgreSQL database, set `GEMINI_API_KEY`, configure the model and pricing settings, start Redis/Celery/Celery Beat, and ensure Meta/LinkedIn callback URLs use the new authenticated initiation flow. The cost defaults are estimates and must be reviewed whenever Google pricing, model, or billing tier changes.
+
+
+## Production-readiness checkpoint: PostgreSQL, LinkedIn scheduling, and AI quotas
+
+The provider-neutral scheduled target migration was validated against PostgreSQL 16. During validation, the migration exposed and fixed a PostgreSQL-specific issue: the `scheduledplatform` enum type is now explicitly created before the target column is added and safely reused by subsequent content scheduling fields. `alembic upgrade head` and `alembic check` now pass against the staging database.
+
+Redis 7 and a real Celery worker were started locally. The worker successfully registered `publish_scheduled_post_task`, `run_due_generation_plans_task`, and `token_guard_task`; `celery inspect ping` returned `pong`; and a database-backed `token_guard_task` was enqueued and completed successfully through Redis with PostgreSQL as the worker database.
+
+Inline scheduling now supports Facebook, Instagram, and LinkedIn end to end. Content creation stores a provider-neutral schedule platform plus either a Meta page or LinkedIn account target. Approval validates future timestamps, target ownership through the scheduler, and mutually exclusive targets before enqueueing the unified scheduled-post executor. The frontend ContentForm now loads LinkedIn accounts and exposes a platform/target selector.
+
+Organization-scoped monthly AI quotas were added for request count and total tokens, with tier defaults and database setting overrides. Generation rejects new work with HTTP 429 after the limit is reached, while idempotent requests remain safe. Billing usage now includes current-month utilization, configured limits, and remaining request/token allowances. The scheduled executor also emits structured lifecycle logs for processing, success, retries, terminal failures, and dead-letter transitions.
+
+## Validation
+
+| Check | Result |
+|---|---:|
+| PostgreSQL 16 connectivity | Passed |
+| Alembic PostgreSQL upgrade | Passed |
+| Alembic PostgreSQL drift check | Passed |
+| Redis connectivity | Passed |
+| Celery worker ping | Passed |
+| Real Redis-backed Celery task | Passed |
+| Python compilation | Passed |
+| Backend tests | **23 passed** |
+| Frontend `npm run build` | Passed |
+| Inline LinkedIn scheduling test | Passed |
+| AI quota enforcement test | Passed |
+
+## Remaining production boundary
+
+Actual Meta Graph and LinkedIn sandbox publishing still requires configured provider credentials, approved callback URLs, and real test accounts. Production deployment should also add external metrics and alert routing, moderation and duplicate-content gates, CI/CD migration checks, and cleanup of existing Pydantic/SQLAlchemy deprecation warnings.

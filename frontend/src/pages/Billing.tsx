@@ -96,7 +96,7 @@ export default function Billing() {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-10">
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                     <p className="text-slate-500 text-sm font-bold">AI requests</p>
                     <p className="text-2xl font-black text-slate-900 mt-1">{usage?.requests ?? 0}</p>
@@ -108,6 +108,15 @@ export default function Billing() {
                 <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
                     <p className="text-slate-500 text-sm font-bold">Estimated AI cost</p>
                     <p className="text-2xl font-black text-indigo-600 mt-1">${(usage?.estimated_cost_usd ?? 0).toFixed(4)}</p>
+                </div>
+                <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm">
+                    <p className="text-slate-500 text-sm font-bold">Monthly AI allowance</p>
+                    <p className="text-2xl font-black text-slate-900 mt-1">
+                        {usage ? `${usage.ai_quota_remaining.requests.toLocaleString()} requests left` : '—'}
+                    </p>
+                    <p className="text-xs text-slate-500 mt-1">
+                        {usage ? `${usage.ai_quota_remaining.tokens.toLocaleString()} tokens left` : 'Loading usage'}
+                    </p>
                 </div>
             </div>
 

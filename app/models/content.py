@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 import enum
 
 from app.core.database import Base
+from app.models.scheduled_post import ScheduledPlatform
 
 
 class ContentStatus(str, enum.Enum):
@@ -39,7 +40,9 @@ class Content(Base):
 
     # Publishing details (legacy removed; using publish_statuses relationship)
     schedule_at = Column(DateTime(timezone=True), nullable=True)
+    schedule_platform = Column(Enum(ScheduledPlatform, name="scheduledplatform"), nullable=True)
     schedule_meta_page_id = Column(Integer, ForeignKey("meta_pages.id", ondelete="SET NULL"), nullable=True, index=True)
+    schedule_linkedin_account_id = Column(Integer, ForeignKey("linkedin_accounts.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Media association
     media_id = Column(Integer, ForeignKey("media.id"), nullable=True, index=True)

@@ -19,7 +19,9 @@ export interface Content {
   updated_at: string | null;
   approved_at: string | null;
   schedule_at?: string | null;
+  schedule_platform?: 'facebook' | 'instagram' | 'linkedin' | null;
   schedule_meta_page_id?: number | null;
+  schedule_linkedin_account_id?: number | null;
   media_id?: number | null;
   media?: {
     url: string;
@@ -32,7 +34,9 @@ export interface ContentCreate {
   title: string;
   body: string;
   schedule_at?: string | null;
+  schedule_platform?: 'facebook' | 'instagram' | 'linkedin' | null;
   schedule_meta_page_id?: number | null;
+  schedule_linkedin_account_id?: number | null;
   media_id?: number | null;
 }
 

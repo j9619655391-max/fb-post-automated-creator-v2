@@ -9,6 +9,7 @@ from app.schemas.generation import GenerateDraftRequest
 from app.services.content_generation_service import (
     GenerationProviderError,
     GenerationValidationError,
+    GenerationQuotaExceeded,
     generate_and_persist_draft,
 )
 
@@ -32,6 +33,8 @@ def generate_draft(
             organization_id=request.organization_id,
             idempotency_key=request.idempotency_key,
         )
+    except GenerationQuotaExceeded as exc:
+        raise HTTPException(status_code=429, detail=str(exc)) from exc
     except GenerationProviderError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except GenerationValidationError as exc:

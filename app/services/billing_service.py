@@ -4,7 +4,7 @@ from sqlalchemy import func
 from app.models.content_generation_usage import ContentGenerationUsage
 from app.models.organization import Organization, SubscriptionTier
 from app.core.config import settings
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 if settings.stripe_api_key:
@@ -146,6 +146,23 @@ class BillingService:
         ).filter(ContentGenerationUsage.organization_id == org.id).group_by(
             ContentGenerationUsage.provider, ContentGenerationUsage.model
         ).all()
+        month_start = datetime.now(timezone.utc).replace(
+            day=1,
+            hour=0,
+            minute=0,
+            second=0,
+            microsecond=0,
+        )
+        monthly_totals = self.db.query(
+            func.count(ContentGenerationUsage.id),
+            func.coalesce(func.sum(ContentGenerationUsage.total_token_count), 0),
+        ).filter(
+            ContentGenerationUsage.organization_id == org.id,
+            ContentGenerationUsage.created_at >= month_start,
+        ).one()
+        from app.services.settings_service import SettingsService
+        tier = getattr(org.subscription_tier, "value", org.subscription_tier)
+        ai_quota = SettingsService(self.db).get_ai_quota_limits(tier)
         recent = base.order_by(ContentGenerationUsage.created_at.desc()).limit(limit).all()
         return {
             "organization_id": org.id,
@@ -155,6 +172,13 @@ class BillingService:
             "thoughts_tokens": int(totals[3] or 0),
             "total_tokens": int(totals[4] or 0),
             "estimated_cost_usd": float(totals[5] or 0),
+            "monthly_requests": int(monthly_totals[0] or 0),
+            "monthly_total_tokens": int(monthly_totals[1] or 0),
+            "ai_quota": ai_quota,
+            "ai_quota_remaining": {
+                "requests": max(0, ai_quota["max_ai_requests_per_month"] - int(monthly_totals[0] or 0)),
+                "tokens": max(0, ai_quota["max_ai_tokens_per_month"] - int(monthly_totals[1] or 0)),
+            },
             "by_model": [
                 {
                     "provider": row[0],

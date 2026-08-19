@@ -24,6 +24,19 @@ class GenerationValidationError(ValueError):
     """Raised when the provider response does not satisfy the content contract."""
 
 
+class GenerationQuotaExceeded(ValueError):
+    """Raised when an organization has exhausted its monthly AI allowance."""
+
+    def __init__(self, limit_type: str, used: int, limit: int):
+        self.limit_type = limit_type
+        self.used = used
+        self.limit = limit
+        super().__init__(
+            f"Monthly AI {limit_type} quota exceeded ({used:,}/{limit:,}). "
+            "Upgrade the organization plan or wait for the next billing month."
+        )
+
+
 def _clean_json_response(text: str) -> dict[str, Any]:
     cleaned = text.strip()
     if cleaned.startswith("```json"):
@@ -98,6 +111,57 @@ def _persist_usage(db: Session, job: ContentGenerationJob, usage: GenerationUsag
     )
 
 
+def _assert_ai_quota(db: Session, organization_id: Optional[int]) -> None:
+    """Reject new organization-scoped AI work after the monthly allowance is used."""
+    if not organization_id:
+        return
+
+    from sqlalchemy import func
+    from app.models.organization import Organization
+    from app.services.settings_service import SettingsService
+
+    organization = db.query(Organization).filter(Organization.id == organization_id).first()
+    if not organization:
+        raise ValueError("Organization not found")
+
+    tier = getattr(organization.subscription_tier, "value", organization.subscription_tier)
+    limits = SettingsService(db).get_ai_quota_limits(tier)
+    month_start = datetime.now(timezone.utc).replace(
+        day=1,
+        hour=0,
+        minute=0,
+        second=0,
+        microsecond=0,
+    )
+    usage_query = db.query(ContentGenerationUsage).filter(
+        ContentGenerationUsage.organization_id == organization_id,
+        ContentGenerationUsage.created_at >= month_start,
+    )
+    used_requests = usage_query.count()
+    used_tokens = int(
+        db.query(func.coalesce(func.sum(ContentGenerationUsage.total_token_count), 0))
+        .filter(
+            ContentGenerationUsage.organization_id == organization_id,
+            ContentGenerationUsage.created_at >= month_start,
+        )
+        .scalar()
+        or 0
+    )
+
+    if used_requests >= limits["max_ai_requests_per_month"]:
+        raise GenerationQuotaExceeded(
+            "requests",
+            used_requests,
+            limits["max_ai_requests_per_month"],
+        )
+    if used_tokens >= limits["max_ai_tokens_per_month"]:
+        raise GenerationQuotaExceeded(
+            "tokens",
+            used_tokens,
+            limits["max_ai_tokens_per_month"],
+        )
+
+
 def generate_and_persist_draft(
     db: Session,
     user_id: int,
@@ -117,6 +181,7 @@ def generate_and_persist_draft(
     if existing:
         return existing
 
+    _assert_ai_quota(db, organization_id)
     label = _category_label(db, category_id, category_name)
     job = ContentGenerationJob(
         organization_id=organization_id,

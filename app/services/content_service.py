@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 
 from app.models.content import Content, ContentStatus
+from app.models.scheduled_post import ScheduledPlatform
 from app.schemas.content import ContentCreate, ContentUpdate, ContentApprovalRequest
 from app.services.audit_service import AuditService
 
@@ -27,6 +28,39 @@ class ContentService:
         if not exists:
             raise ValueError(f"User does not have access to organization {org_id}")
     
+    @staticmethod
+    def _normalize_schedule_platform(content_data: ContentCreate) -> Optional[ScheduledPlatform]:
+        """Normalize legacy Meta scheduling and validate target combinations."""
+        schedule_at = getattr(content_data, "schedule_at", None)
+        meta_page_id = getattr(content_data, "schedule_meta_page_id", None)
+        linkedin_account_id = getattr(content_data, "schedule_linkedin_account_id", None)
+        raw_platform = getattr(content_data, "schedule_platform", None)
+
+        if not schedule_at:
+            if raw_platform or meta_page_id or linkedin_account_id:
+                raise ValueError("A schedule time is required when a publishing target is selected")
+            return None
+
+        if raw_platform:
+            try:
+                platform = ScheduledPlatform(raw_platform.lower())
+            except ValueError as exc:
+                raise ValueError("schedule_platform must be facebook, instagram, or linkedin") from exc
+        elif meta_page_id:
+            # Preserve the legacy payload contract: a Meta page with no
+            # platform specified means Facebook.
+            platform = ScheduledPlatform.FACEBOOK
+        else:
+            raise ValueError("A publishing target is required when a schedule time is set")
+
+        if platform in {ScheduledPlatform.FACEBOOK, ScheduledPlatform.INSTAGRAM}:
+            if not meta_page_id or linkedin_account_id:
+                raise ValueError("Facebook and Instagram scheduling requires exactly one Meta page")
+        elif platform == ScheduledPlatform.LINKEDIN:
+            if not linkedin_account_id or meta_page_id:
+                raise ValueError("LinkedIn scheduling requires exactly one LinkedIn account")
+        return platform
+
     def _verify_content_access(self, content: Content, user_id: int) -> None:
         """Allow the creator or a member of the owning organization to mutate content."""
         if content.created_by_id == user_id:
@@ -50,6 +84,7 @@ class ContentService:
         if content_data.organization_id:
             self._verify_org_access(user_id, content_data.organization_id)
             
+        schedule_platform = self._normalize_schedule_platform(content_data)
         content = Content(
             title=content_data.title,
             body=content_data.body,
@@ -57,7 +92,9 @@ class ContentService:
             organization_id=content_data.organization_id,
             created_by_id=user_id,
             schedule_at=getattr(content_data, "schedule_at", None),
+            schedule_platform=schedule_platform,
             schedule_meta_page_id=getattr(content_data, "schedule_meta_page_id", None),
+            schedule_linkedin_account_id=getattr(content_data, "schedule_linkedin_account_id", None),
             media_id=getattr(content_data, "media_id", None),
         )
         self.db.add(content)
@@ -192,8 +229,19 @@ class ContentService:
             raise ValueError("Only pending content can be approved/rejected")
 
         if approval_data.approved and content.schedule_at:
-            if not content.schedule_meta_page_id:
-                raise ValueError("A target page is required when a schedule time is set")
+            platform = content.schedule_platform
+            if not platform:
+                platform = ScheduledPlatform.FACEBOOK if content.schedule_meta_page_id else ScheduledPlatform.LINKEDIN
+
+            if platform in {ScheduledPlatform.FACEBOOK, ScheduledPlatform.INSTAGRAM}:
+                if not content.schedule_meta_page_id or content.schedule_linkedin_account_id:
+                    raise ValueError("Facebook and Instagram scheduling requires exactly one Meta page")
+            elif platform == ScheduledPlatform.LINKEDIN:
+                if not content.schedule_linkedin_account_id or content.schedule_meta_page_id:
+                    raise ValueError("LinkedIn scheduling requires exactly one LinkedIn account")
+            else:
+                raise ValueError("Invalid publishing platform")
+
             scheduled_at = (
                 content.schedule_at
                 if content.schedule_at.tzinfo
@@ -229,15 +277,24 @@ class ContentService:
         self.db.commit()
         self.db.refresh(content)
 
-        # If approved and schedule intent was set, create ScheduledPost and enqueue Celery task (lazy import to avoid circular import)
-        if approval_data.approved and content.schedule_at and content.schedule_meta_page_id:
-            from app.scheduler import schedule_facebook_post
-            schedule_facebook_post(
+        # If approved and schedule intent was set, create a provider-neutral
+        # ScheduledPost and enqueue its Celery executor.
+        if approval_data.approved and content.schedule_at:
+            from app.scheduler import schedule_post
+
+            platform = content.schedule_platform or (
+                ScheduledPlatform.FACEBOOK
+                if content.schedule_meta_page_id
+                else ScheduledPlatform.LINKEDIN
+            )
+            schedule_post(
                 self.db,
                 content_id=content.id,
-                meta_page_id=content.schedule_meta_page_id,
-                publish_time=content.schedule_at,
+                platform=platform,
+                scheduled_at=content.schedule_at,
                 user_id=content.created_by_id,
+                meta_page_id=content.schedule_meta_page_id,
+                linkedin_account_id=content.schedule_linkedin_account_id,
             )
         
         return content

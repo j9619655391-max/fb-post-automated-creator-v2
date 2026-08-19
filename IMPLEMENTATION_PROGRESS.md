@@ -46,3 +46,14 @@ The implemented generation plan creates a complete AI-generated `DRAFT` at the s
 8. Replace JWT query-string transport in Facebook/LinkedIn OAuth with a one-time server-side initiation code.
 9. Add rate limiting, private media URLs, secret validation, and production-safe bootstrap behavior.
 10. Roll out in dry-run, approval-required, limited-pilot, and only then controlled-autopilot modes.
+
+
+## Latest production-readiness checkpoint
+
+The application now has provider-neutral inline scheduling across Facebook, Instagram, and LinkedIn. Content creation accepts a platform and target account, approval validates the schedule and dispatches the unified scheduled-post Celery executor, and the ContentForm includes a LinkedIn account selector alongside Meta targets. A PostgreSQL-specific Alembic enum issue was fixed and validated against PostgreSQL 16 with no migration drift.
+
+Redis-backed Celery staging validation is complete: the worker registered all scheduled tasks, responded to an inspection ping, and successfully executed a database-backed token-guard task using PostgreSQL. Organization-scoped monthly AI request and token quotas are enforced before provider calls, exposed in billing usage responses, and visible in the billing UI. Scheduled publishing now emits structured lifecycle logs for operational troubleshooting.
+
+The project currently validates with **23 backend tests passing**, Python compilation passing, frontend production build passing, PostgreSQL `alembic upgrade head` passing, and PostgreSQL `alembic check` reporting no drift.
+
+Actual external Meta/Instagram and LinkedIn sandbox publishing remains deployment-dependent because it requires real provider credentials, callback URLs, and connected test accounts. Moderation, external metrics/alerting, CI/CD, and deprecation-warning cleanup remain follow-up production hardening items.

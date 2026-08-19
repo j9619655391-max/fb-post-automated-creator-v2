@@ -32,6 +32,16 @@ export interface GenerationUsageSummary {
     thoughts_tokens: number;
     total_tokens: number;
     estimated_cost_usd: number;
+    monthly_requests: number;
+    monthly_total_tokens: number;
+    ai_quota: {
+        max_ai_requests_per_month: number;
+        max_ai_tokens_per_month: number;
+    };
+    ai_quota_remaining: {
+        requests: number;
+        tokens: number;
+    };
     by_model: GenerationUsageModel[];
     recent: Array<{
         id: number;

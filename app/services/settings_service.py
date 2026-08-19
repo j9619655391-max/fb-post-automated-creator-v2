@@ -123,11 +123,43 @@ class SettingsService:
             SubscriptionTier.AGENCY.value: {"max_posts": 500, "max_members": 20},
         }
         
-        d = defaults.get(tier.upper(), defaults[SubscriptionTier.FREE.value])
+        normalized_tier = (tier or SubscriptionTier.FREE.value).lower()
+        d = defaults.get(normalized_tier, defaults[SubscriptionTier.FREE.value])
         
         return {
             "max_posts_per_month": int(self.get_setting(f"{prefix}MAX_POSTS") or d["max_posts"]),
             "max_members": int(self.get_setting(f"{prefix}MAX_MEMBERS") or d["max_members"]),
+        }
+
+    def get_ai_quota_limits(self, tier: str) -> dict:
+        """Return monthly AI request and token limits for a subscription tier."""
+        normalized_tier = (tier or SubscriptionTier.FREE.value).lower()
+        defaults = {
+            SubscriptionTier.FREE.value: {
+                "max_ai_requests_per_month": 10,
+                "max_ai_tokens_per_month": 100_000,
+            },
+            SubscriptionTier.PRO.value: {
+                "max_ai_requests_per_month": 100,
+                "max_ai_tokens_per_month": 1_000_000,
+            },
+            SubscriptionTier.AGENCY.value: {
+                "max_ai_requests_per_month": 500,
+                "max_ai_tokens_per_month": 5_000_000,
+            },
+        }
+        fallback = defaults[SubscriptionTier.FREE.value]
+        tier_defaults = defaults.get(normalized_tier, fallback)
+        prefix = f"LIMIT_{normalized_tier.upper()}_AI_"
+        return {
+            "max_ai_requests_per_month": int(
+                self.get_setting(f"{prefix}REQUESTS")
+                or tier_defaults["max_ai_requests_per_month"]
+            ),
+            "max_ai_tokens_per_month": int(
+                self.get_setting(f"{prefix}TOKENS")
+                or tier_defaults["max_ai_tokens_per_month"]
+            ),
         }
 
     def sync_to_env(self):
