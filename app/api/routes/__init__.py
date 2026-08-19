@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from app.api.dependencies import check_maintenance_mode
-from app.api.routes import content, users, audit_logs, auth_facebook, meta_pages, scheduled_posts, cron, vce, auth, media, ai, instagram, auth_linkedin, platforms, organizations, billing, admin_settings
+from app.api.routes import content, users, audit_logs, auth_facebook, meta_pages, scheduled_posts, cron, vce, auth, media, ai, instagram, auth_linkedin, platforms, organizations, billing, admin_settings, generation, generation_plans
 
 api_router = APIRouter(dependencies=[Depends(check_maintenance_mode)])
 
@@ -21,6 +21,8 @@ api_router.include_router(scheduled_posts.router, prefix="/scheduled-posts", tag
 api_router.include_router(cron.router, prefix="/cron", tags=["cron"])
 api_router.include_router(vce.router, prefix="/vce", tags=["vce"])
 api_router.include_router(ai.router, prefix="/ai", tags=["ai"])
+api_router.include_router(generation.router, prefix="/generation", tags=["generation"])
+api_router.include_router(generation_plans.router, prefix="/generation-plans", tags=["generation-plans"])
 api_router.include_router(instagram.router, prefix="/instagram", tags=["instagram"])
 
 

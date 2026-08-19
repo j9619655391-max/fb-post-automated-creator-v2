@@ -50,6 +50,21 @@ def publish_to_facebook(
         if not page:
             continue # Skip invalid pages
 
+        existing_status = (
+            db.query(ContentPublishStatus)
+            .filter(
+                ContentPublishStatus.content_id == content.id,
+                ContentPublishStatus.meta_page_id == meta_page_id,
+            )
+            .order_by(ContentPublishStatus.id.desc())
+            .first()
+        )
+        if existing_status and existing_status.status in (
+            PublishStatusEnum.POSTED,
+            PublishStatusEnum.PROCESSING,
+        ):
+            continue
+
         publish_status = ContentPublishStatus(
             content_id=content.id,
             meta_page_id=meta_page_id,

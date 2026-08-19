@@ -37,11 +37,6 @@ def get_db() -> Generator[Session, None, None]:
 
 
 def init_db() -> None:
-    """
-    Initialize database tables.
-    
-    Creates all tables defined in models that inherit from Base.
-    Safe to call multiple times (only creates if not exists).
-    """
-    Base.metadata.create_all(bind=engine)
+    """Deprecated compatibility hook; schema changes are managed by Alembic."""
+    return None
 

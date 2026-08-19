@@ -105,5 +105,6 @@ def get_generated_themes(
         category_name=category_name,
         count=count,
         extra_instruction=extra_instruction,
+        user_id=current_user.id,
     )
     return GenerateThemesResponse(themes=themes, available=True)

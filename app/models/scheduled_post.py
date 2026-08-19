@@ -14,6 +14,9 @@ class ScheduledPostStatus(str, enum.Enum):
     POSTED = "posted"
     CANCELLED = "cancelled"
     FAILED = "failed"
+    RETRYING = "retrying"
+    PARTIALLY_FAILED = "partially_failed"
+    DEAD_LETTER = "dead_letter"
 
 
 class ScheduledPost(Base):
@@ -27,6 +30,11 @@ class ScheduledPost(Base):
     status = Column(Enum(ScheduledPostStatus), default=ScheduledPostStatus.PENDING, nullable=False, index=True)
     posted_at = Column(DateTime(timezone=True), nullable=True)
     failure_reason = Column(String(512), nullable=True)  # If status=FAILED
+    attempt_count = Column(Integer, nullable=False, default=0)
+    last_error_code = Column(String(100), nullable=True)
+    next_retry_at = Column(DateTime(timezone=True), nullable=True)
+    idempotency_key = Column(String(255), nullable=True, unique=True, index=True)
+    completed_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     content = relationship("Content", backref="scheduled_posts")

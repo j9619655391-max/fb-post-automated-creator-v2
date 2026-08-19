@@ -1,6 +1,6 @@
 import { apiGet, apiFetch } from './client';
 
-export type ScheduledPostStatus = 'pending' | 'processing' | 'posted' | 'cancelled' | 'failed';
+export type ScheduledPostStatus = 'pending' | 'processing' | 'retrying' | 'posted' | 'partially_failed' | 'cancelled' | 'failed' | 'dead_letter';
 
 export interface ScheduledPost {
   id: number;

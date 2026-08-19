@@ -1,5 +1,5 @@
 """Content model."""
-from sqlalchemy import Column, Integer, String, Text, Enum, ForeignKey, DateTime
+from sqlalchemy import Boolean, Column, Integer, String, Text, Enum, ForeignKey, DateTime
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 import enum
@@ -44,9 +44,14 @@ class Content(Base):
     # Media association
     media_id = Column(Integer, ForeignKey("media.id"), nullable=True, index=True)
 
+    # AI generation provenance
+    generated_by_ai = Column(Boolean, default=False, nullable=False, index=True)
+    generation_job_id = Column(Integer, ForeignKey("content_generation_jobs.id", ondelete="SET NULL"), nullable=True, index=True)
+
     # Relationships
     creator = relationship("User", foreign_keys=[created_by_id], backref="created_content")
     approver = relationship("User", foreign_keys=[approved_by_id], backref="approved_content")
     media = relationship("Media", foreign_keys=[media_id], backref="content_items")
+    generation_job = relationship("ContentGenerationJob", foreign_keys=[generation_job_id], back_populates="content")
     publish_statuses = relationship("ContentPublishStatus", back_populates="content", cascade="all, delete-orphan")
 

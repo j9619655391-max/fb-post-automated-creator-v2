@@ -1,22 +1,70 @@
-import google.generativeai as genai
-from typing import Dict
+import json
+import uuid
+from datetime import datetime, timezone
+from typing import Dict, Optional
+
+from sqlalchemy.orm import Session
+
 from app.core.config import settings
+from app.models.content_generation import ContentGenerationJob, GenerationStatus
+from app.models.content_generation_usage import ContentGenerationUsage
+from app.services.genai_client import GenerationUsage, calculate_cost, close_client, extract_usage, get_client
+
 
 class AIService:
-    """Service for interacting with Google's Gemini API."""
-    
-    def __init__(self):
-        if not settings.gemini_api_key:
-            raise ValueError("GEMINI_API_KEY is not configured.")
-        genai.configure(api_key=settings.gemini_api_key)
-        # Using gemini-2.5-flash for text tasks
-        self.model = genai.GenerativeModel('gemini-2.5-flash')
+    """Service for optimization and other short-lived Gemini operations."""
+
+    def __init__(
+        self,
+        db: Optional[Session] = None,
+        user_id: Optional[int] = None,
+        organization_id: Optional[int] = None,
+    ):
+        self.db = db
+        self.user_id = user_id
+        self.organization_id = organization_id
+        self.client = get_client()
+
+    def _create_usage_job(self) -> Optional[ContentGenerationJob]:
+        if self.db is None or self.user_id is None:
+            return None
+        job = ContentGenerationJob(
+            organization_id=self.organization_id,
+            requested_by_id=self.user_id,
+            category_name="optimization",
+            model=settings.gemini_model,
+            provider="gemini",
+            status=GenerationStatus.GENERATING,
+            idempotency_key=f"optimization:{uuid.uuid4()}",
+        )
+        self.db.add(job)
+        self.db.commit()
+        self.db.refresh(job)
+        return job
+
+    def _save_usage(self, job: Optional[ContentGenerationJob], usage: GenerationUsage) -> None:
+        if not job or not self.db:
+            return
+        self.db.add(
+            ContentGenerationUsage(
+                generation_job_id=job.id,
+                organization_id=job.organization_id,
+                requested_by_id=job.requested_by_id,
+                provider=job.provider or "gemini",
+                model=job.model or settings.gemini_model,
+                prompt_token_count=usage.prompt_tokens,
+                candidates_token_count=usage.candidates_tokens,
+                thoughts_token_count=usage.thoughts_tokens,
+                cached_content_token_count=usage.cached_content_tokens,
+                total_token_count=usage.total_tokens,
+                input_cost_per_million_usd=settings.gemini_input_cost_per_million_usd,
+                output_cost_per_million_usd=settings.gemini_output_cost_per_million_usd,
+                cost_usd=calculate_cost(usage),
+            )
+        )
 
     def optimize_content(self, title: str, body: str) -> Dict[str, str]:
-        """
-        Takes a draft title and body, and returns an optimized, professional version
-        geared towards high engagement on social media.
-        """
+        """Return an optimized title/body and account for provider token usage."""
         prompt = f"""
 You are an expert social media manager and copywriter. Review the following draft post:
 
@@ -27,28 +75,44 @@ Please provide an optimized version of this post designed to maximize engagement
 Return ONLY a JSON object with two keys containing your optimized strings: "optimized_title" and "optimized_body".
 Do not include markdown formatting like ```json or any other text outside the JSON object.
 """
-        
+        job = self._create_usage_job()
+        usage = GenerationUsage()
         try:
-            response = self.model.generate_content(prompt)
-            # The model should return a JSON string, let's parse it manually or via a quick clean
-            text = response.text.strip()
-            
-            # Defensive cleaning in case the model wraps it in markdown blocks
+            response = self.client.models.generate_content(
+                model=settings.gemini_model,
+                contents=prompt,
+            )
+            usage = extract_usage(response)
+            self._save_usage(job, usage)
+            text = (getattr(response, "text", "") or "").strip()
             if text.startswith("```json"):
                 text = text[7:]
             if text.startswith("```"):
                 text = text[3:]
             if text.endswith("```"):
                 text = text[:-3]
-            text = text.strip()
-            
-            import json
-            result = json.loads(text)
-            
-            # Fallback if keys are slightly off
+            result = json.loads(text.strip())
+            if job and self.db:
+                job.status = GenerationStatus.SUCCEEDED
+                job.completed_at = datetime.now(timezone.utc)
+                job.title = str(result.get("optimized_title") or title)[:200]
+                job.body = str(result.get("optimized_body") or body)
+                self.db.commit()
             return {
                 "title": result.get("optimized_title", title),
                 "body": result.get("optimized_body", body),
             }
-        except Exception as e:
-            raise ValueError(f"Failed to generate AI response: {str(e)}")
+        except Exception as exc:
+            if job and self.db:
+                self.db.rollback()
+                job = self.db.query(ContentGenerationJob).filter(ContentGenerationJob.id == job.id).first()
+                if job:
+                    job.status = GenerationStatus.FAILED
+                    job.error_code = "OPTIMIZATION_FAILED"
+                    job.error_message = str(exc)[:1000]
+                    job.completed_at = datetime.now(timezone.utc)
+                    self._save_usage(job, usage)
+                    self.db.commit()
+            raise ValueError(f"Failed to generate AI response: {exc}") from exc
+        finally:
+            close_client(self.client)

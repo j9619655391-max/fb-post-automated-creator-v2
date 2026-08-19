@@ -8,8 +8,11 @@ function scheduleStatusLabel(status: string): string {
   switch (status) {
     case 'pending': return 'Scheduled';
     case 'processing': return 'Processing';
+    case 'retrying': return 'Retrying';
     case 'posted': return 'Posted';
+    case 'partially_failed': return 'Partially failed';
     case 'failed': return 'Failed';
+    case 'dead_letter': return 'Needs review';
     case 'cancelled': return 'Cancelled';
     default: return status;
   }
@@ -19,8 +22,11 @@ function scheduleStatusClass(status: string): string {
   switch (status) {
     case 'pending': return 'bg-blue-100 text-blue-800';
     case 'processing': return 'bg-amber-100 text-amber-800';
+    case 'retrying': return 'bg-amber-100 text-amber-800';
     case 'posted': return 'bg-emerald-100 text-emerald-800';
+    case 'partially_failed': return 'bg-orange-100 text-orange-800';
     case 'failed': return 'bg-red-100 text-red-800';
+    case 'dead_letter': return 'bg-red-100 text-red-800';
     case 'cancelled': return 'bg-slate-100 text-slate-600';
     default: return 'bg-slate-100 text-slate-600';
   }

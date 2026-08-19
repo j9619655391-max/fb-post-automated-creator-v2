@@ -30,7 +30,15 @@ def get_authorize_url(db: Session, user_id: int) -> str:
         raise ValueError("LinkedIn OAuth not configured (LINKEDIN_CLIENT_ID, LINKEDIN_REDIRECT_URI)")
     
     state = secrets.token_urlsafe(32)
-    db.add(OAuthState(state=state, user_id=user_id))
+    now = datetime.now(timezone.utc)
+    db.add(
+        OAuthState(
+            state=state,
+            provider="linkedin",
+            user_id=user_id,
+            expires_at=now + timedelta(minutes=10),
+        )
+    )
     db.commit()
     
     params = {
@@ -54,12 +62,27 @@ def exchange_code(db: Session, code: str, state: str) -> int:
     if not client_id or not client_secret or not redirect_uri:
         raise ValueError("LinkedIn OAuth not configured")
     
-    oauth_state = db.query(OAuthState).filter(OAuthState.state == state).first()
+    oauth_state = db.query(OAuthState).filter(
+        OAuthState.state == state,
+        OAuthState.provider == "linkedin",
+        OAuthState.consumed_at.is_(None),
+    ).first()
+    now = datetime.now(timezone.utc)
     if not oauth_state:
         raise ValueError("Invalid or expired OAuth state")
-    
+    expires_at = oauth_state.expires_at
+    if not expires_at:
+        db.delete(oauth_state)
+        db.commit()
+        raise ValueError("Invalid or expired OAuth state")
+    if not expires_at.tzinfo:
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at <= now:
+        db.delete(oauth_state)
+        db.commit()
+        raise ValueError("Invalid or expired OAuth state")
     user_id = oauth_state.user_id
-    db.delete(oauth_state)
+    oauth_state.consumed_at = now
     db.commit()
 
     data = {

@@ -6,6 +6,7 @@ import { getCategories, generateThemes, type ContentCategory } from '../api/vce'
 import { listPages, type MetaPage } from '../api/metaPages';
 import { uploadMedia } from '../api/media';
 import { optimizeContent } from '../api/ai';
+import { generateDraft } from '../api/generation';
 import { useOrg } from '../context/OrgContext';
 
 export default function ContentForm() {
@@ -17,6 +18,7 @@ export default function ContentForm() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [loading, setLoading] = useState(false);
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(!isEdit);
   const [previewDevice, setPreviewDevice] = useState<'mobile' | 'desktop'>('mobile');
@@ -105,6 +107,24 @@ export default function ContentForm() {
     }
   }
 
+  async function handleGenerateDraft() {
+    if (isEdit) return;
+    setGeneratingDraft(true);
+    setError('');
+    try {
+      const generated = await generateDraft({
+        category_id: selectedCategory?.id,
+        category_name: selectedCategory?.name,
+        organization_id: currentOrg?.id,
+      });
+      navigate(`/content/${generated.id}/edit`, { replace: true });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not generate a draft');
+    } finally {
+      setGeneratingDraft(false);
+    }
+  }
+
   async function handleOptimize() {
     if (!title && !body) {
       setError('Please provide a title or body to optimize.');
@@ -177,8 +197,8 @@ export default function ContentForm() {
           {/* Automation: Category → AI themes → load into form (new content only) */}
           {!isEdit && (
             <div className="mb-8 p-5 rounded-xl bg-indigo-50 border-2 border-indigo-200">
-              <h2 className="text-base font-semibold text-indigo-900 mb-1">Create with AI – category & themes</h2>
-              <p className="text-sm text-indigo-700 mb-3">Select a category → themes generate automatically → click a theme to load it into the form below.</p>
+              <h2 className="text-base font-semibold text-indigo-900 mb-1">Create with AI</h2>
+              <p className="text-sm text-indigo-700 mb-3">Generate a complete draft for review, or select a theme and write the post yourself.</p>
               <label className="block text-sm font-medium text-slate-700 mb-1">Category</label>
               <select
                 value={selectedCategory?.id ?? ''}
@@ -194,6 +214,16 @@ export default function ContentForm() {
                 ))}
               </select>
               {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Run the app with DB seed (Docker or init_db) to get Motivation, Tips, Reflection.</p>}
+              <div className="flex flex-wrap gap-2 mb-3">
+                <button
+                  type="button"
+                  onClick={handleGenerateDraft}
+                  disabled={generatingDraft || !isAuthenticated}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {generatingDraft ? 'Generating draft...' : 'Generate complete draft'}
+                </button>
+              </div>
               {themesLoading && <p className="text-indigo-600 text-sm font-medium mb-2">Generating themes...</p>}
               {themeError && <p className="text-amber-700 text-sm mb-2">{themeError}</p>}
               {!themesLoading && themes.length > 0 && (

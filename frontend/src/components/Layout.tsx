@@ -47,6 +47,7 @@ export default function Layout() {
               {[
                 { to: '/', label: 'DASHBOARD' },
                 { to: '/calendar', label: 'SCHEDULER' },
+                { to: '/automation-plans', label: 'AUTOPILOT' },
                 { to: '/content', label: 'PRODUCTION' },
                 { to: '/insights', label: 'ANALYTICS' },
                 { to: '/platforms', label: 'NETWORK' },

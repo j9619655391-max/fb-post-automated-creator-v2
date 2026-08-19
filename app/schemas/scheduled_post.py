@@ -26,6 +26,11 @@ class ScheduledPostResponse(BaseModel):
     status: ScheduledPostStatus
     posted_at: Optional[datetime] = None
     failure_reason: Optional[str] = None
+    attempt_count: int = 0
+    last_error_code: Optional[str] = None
+    next_retry_at: Optional[datetime] = None
+    idempotency_key: Optional[str] = None
+    completed_at: Optional[datetime] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

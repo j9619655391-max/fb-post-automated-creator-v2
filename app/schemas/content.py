@@ -46,6 +46,8 @@ class ContentResponse(ContentBase):
     schedule_at: Optional[datetime] = None
     schedule_meta_page_id: Optional[int] = None
     media_id: Optional[int] = None
+    generated_by_ai: bool = False
+    generation_job_id: Optional[int] = None
     publish_statuses: List[ContentPublishStatusResponse] = []
 
     class Config:

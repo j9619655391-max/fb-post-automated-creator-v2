@@ -1,7 +1,7 @@
 """Content management service."""
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 
 from app.models.content import Content, ContentStatus
 from app.schemas.content import ContentCreate, ContentUpdate, ContentApprovalRequest
@@ -27,6 +27,20 @@ class ContentService:
         if not exists:
             raise ValueError(f"User does not have access to organization {org_id}")
     
+    def _verify_content_access(self, content: Content, user_id: int) -> None:
+        """Allow the creator or a member of the owning organization to mutate content."""
+        if content.created_by_id == user_id:
+            return
+        if content.organization_id:
+            from app.models.organization import OrganizationMember
+            exists = self.db.query(OrganizationMember).filter(
+                OrganizationMember.organization_id == content.organization_id,
+                OrganizationMember.user_id == user_id,
+            ).first()
+            if exists:
+                return
+        raise ValueError("User does not have access to this content")
+
     def create_content(self, content_data: ContentCreate, user_id: int) -> Content:
         """
         Create new content in draft status.
@@ -83,6 +97,8 @@ class ContentService:
         query = self.db.query(Content)
         
         if organization_id:
+            if user_id is not None:
+                self._verify_org_access(user_id, organization_id)
             query = query.filter(Content.organization_id == organization_id)
         elif user_id:
             # If no org is specified, non-admins see their private content + content in orgs they belong to
@@ -106,6 +122,8 @@ class ContentService:
             return None
         
         # Only allow updates to draft content
+        self._verify_content_access(content, user_id)
+
         if content.status != ContentStatus.DRAFT:
             raise ValueError("Only draft content can be updated")
         
@@ -136,6 +154,8 @@ class ContentService:
         if not content:
             return None
         
+        self._verify_content_access(content, user_id)
+
         if content.status != ContentStatus.DRAFT:
             raise ValueError("Only draft content can be submitted for approval")
         
@@ -170,6 +190,17 @@ class ContentService:
         
         if content.status != ContentStatus.PENDING_APPROVAL:
             raise ValueError("Only pending content can be approved/rejected")
+
+        if approval_data.approved and content.schedule_at:
+            if not content.schedule_meta_page_id:
+                raise ValueError("A target page is required when a schedule time is set")
+            scheduled_at = (
+                content.schedule_at
+                if content.schedule_at.tzinfo
+                else content.schedule_at.replace(tzinfo=timezone.utc)
+            )
+            if scheduled_at <= datetime.now(timezone.utc):
+                raise ValueError("Scheduled publishing time must be in the future")
         
         if approval_data.approved:
             content.status = ContentStatus.APPROVED
@@ -217,6 +248,8 @@ class ContentService:
         if not content:
             return False
         
+        self._verify_content_access(content, user_id)
+
         if content.status != ContentStatus.DRAFT:
             raise ValueError("Only draft content can be deleted")
         

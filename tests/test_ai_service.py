@@ -1,42 +1,41 @@
-import asyncio
-import os
-import sys
-from pathlib import Path
-
-# Add the project root to the path so we can import app modules
-project_root = Path(__file__).resolve().parent.parent
-sys.path.insert(0, str(project_root))
-
-from app.core.config import settings
+from app.services import ai_service
 from app.services.ai_service import AIService
 
-async def test_ai_optimization():
-    print("Initializing AI Service...")
-    try:
-        service = AIService()
-        title = "new product launch"
-        body = "we are launching a new product tomorrow. buy it."
-        
-        print(f"Original Title: {title}")
-        print(f"Original Body: {body}")
-        print("\nOptimizing...")
-        
-        result = service.optimize_content(title, body)
-        
-        print("\n=== AI Results ===")
-        print(f"Optimized Title: {result.get('title')}")
-        print(f"Optimized Body:\n{result.get('body')}")
-        print("==================\n")
-        
-        assert result.get('title') and result.get('title') != title
-        assert result.get('body') and result.get('body') != body
-        print("PASS AI Optimization Passed!")
-        
-    except ValueError as e:
-        print(f"FAIL AI Optimization Failed: {e}")
-        # Note: This might fail if GEMINI_API_KEY is not set in `.env`
-    except Exception as e:
-        print(f"FAIL Unexpected Error: {e}")
 
-if __name__ == "__main__":
-    asyncio.run(test_ai_optimization())
+class FakeUsage:
+    prompt_token_count = 10
+    candidates_token_count = 20
+    thoughts_token_count = 0
+    cached_content_token_count = 0
+    total_token_count = 30
+
+
+class FakeResponse:
+    text = '{"optimized_title": "Improved title", "optimized_body": "Improved body"}'
+    usage_metadata = FakeUsage()
+
+
+class FakeModels:
+    def generate_content(self, model: str, contents: str):
+        assert model == "gemini-2.5-flash"
+        assert "new product launch" in contents
+        return FakeResponse()
+
+
+class FakeClient:
+    models = FakeModels()
+
+    def close(self):
+        pass
+
+
+def test_ai_optimization_with_mocked_provider(monkeypatch):
+    monkeypatch.setattr(ai_service, "get_client", lambda: FakeClient())
+
+    service = AIService()
+    result = service.optimize_content("new product launch", "we are launching tomorrow")
+
+    assert result == {
+        "title": "Improved title",
+        "body": "Improved body",
+    }

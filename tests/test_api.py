@@ -1,34 +1,34 @@
-"""Tests for API endpoints (content, VCE)."""
-import pytest
+def test_list_content_requires_authentication(client, api):
+    response = client.get(f"{api}/content/")
+    assert response.status_code == 401
 
 
-def test_list_content_user_not_found(client, api):
-    """List content with user_id that has no user returns 404."""
-    r = client.get(f"{api}/content/", params={"user_id": 999})
-    assert r.status_code == 404
+def test_list_content_authenticated_user(client, api, auth_headers):
+    response = client.get(f"{api}/content/", headers=auth_headers)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
 
-def test_vce_share_psychology_tips(client, api):
+def test_vce_share_psychology_tips(client, api, auth_headers):
     """VCE share-psychology-tips returns advisory tips."""
-    r = client.get(f"{api}/vce/share-psychology-tips")
-    assert r.status_code == 200
-    data = r.json()
+    response = client.get(f"{api}/vce/share-psychology-tips", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()
     assert data.get("advisory_only") is True
-    assert "tips" in data
-    assert isinstance(data["tips"], list)
+    assert isinstance(data.get("tips"), list)
     assert len(data["tips"]) >= 1
     tip = data["tips"][0]
-    assert "id" in tip and "title" in tip and "tip" in tip
+    assert {"id", "title", "tip"}.issubset(tip)
 
 
-def test_vce_categories(client, api):
-    """VCE categories returns list (empty if not seeded)."""
-    r = client.get(f"{api}/vce/categories")
-    assert r.status_code == 200
-    assert isinstance(r.json(), list)
+def test_vce_categories(client, api, auth_headers):
+    """VCE categories returns a list, empty when the database is not seeded."""
+    response = client.get(f"{api}/vce/categories", headers=auth_headers)
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
 
-def test_vce_categories_today(client, api):
-    """VCE categories/today returns 200 with category or 404 when none."""
-    r = client.get(f"{api}/vce/categories/today")
-    assert r.status_code in (200, 404)
+def test_vce_categories_today(client, api, auth_headers):
+    """Today's category returns a category or 404 when none are seeded."""
+    response = client.get(f"{api}/vce/categories/today", headers=auth_headers)
+    assert response.status_code in (200, 404)

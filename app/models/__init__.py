@@ -13,6 +13,9 @@ from app.models.content_category import ContentCategory
 from app.models.hook_template import HookTemplate
 from app.models.content_execution import ContentPublishStatus
 from app.models.system_setting import SystemSetting
+from app.models.content_generation import ContentGenerationJob, GenerationStatus
+from app.models.generation_plan import ContentGenerationPlan, GenerationPlanStatus, GenerationRecurrence, ApprovalMode
+from app.models.content_generation_usage import ContentGenerationUsage
 
 __all__ = [
     "User", "Content", "Media", "AuditLog", "OAuthState", "MetaUserToken", "LinkedInUserToken", "LinkedInAccount",
@@ -20,6 +23,8 @@ __all__ = [
     "MetaPage",
     "ScheduledPost", "ScheduledPostStatus", "PostingPreference",
     "ContentCategory", "HookTemplate", "ContentPublishStatus",
-    "SystemSetting",
+    "SystemSetting", "ContentGenerationJob", "GenerationStatus",
+    "ContentGenerationPlan", "GenerationPlanStatus", "GenerationRecurrence", "ApprovalMode",
+    "ContentGenerationUsage",
 ]
 

@@ -13,6 +13,8 @@ Enterprise-grade content automation platform with manual approval workflows and 
 - **Facebook OAuth (Phase 1)**: Single Meta App, user consent only; token encryption at rest; login/callback
 - **Page tokens (Phase 2)**: Sync/list Facebook pages; page access tokens encrypted at rest
 - **User-configurable posting (Phase 3)**: Schedule approved content to a page; scheduler executes only when user schedules; safety limits (cooldown, max/day); cron/run with secret
+- **AI draft generation**: Generate a complete, approval-required draft with structured Gemini output and persisted provenance
+- **Generation plans**: Daily/weekly recurring plans create approval-required AI drafts through Celery Beat
 - **Meta compliance (Phase 4)**: App Review doc (docs/META_APP_REVIEW.md); FB API error handling; Posting Recommendation Engine (advisory API)
 - **RESTful API**: Clean FastAPI-based REST API
 
@@ -137,6 +139,14 @@ app/
 ### Cron (server-side only)
 - `POST /api/v1/cron/run?secret=CRON_SECRET` - Process due scheduled posts; call from cron job
 
+### AI generation and automation plans
+- `POST /api/v1/generation/draft` - Generate and persist one complete AI draft; approval is still required
+- `POST /api/v1/generation-plans/` - Create a daily/weekly approval-required generation plan
+- `GET /api/v1/generation-plans/` - List accessible generation plans
+- `POST /api/v1/generation-plans/{id}/pause` - Pause a plan
+- `POST /api/v1/generation-plans/{id}/resume` - Resume a plan
+- `POST /api/v1/generation-plans/{id}/run-now` - Generate one draft immediately from an active plan
+
 ### Viral Content Engine (VCE – advisory)
 - `GET /api/v1/vce/categories` - List content categories
 - `GET /api/v1/vce/categories/today` - Today's suggested category (rotation)
@@ -155,11 +165,12 @@ Only draft content can be updated or deleted.
 
 ## Authentication
 
-**Current (MVP):**
-- **API:** Simplified `user_id` query parameter (defaults to 1). Placeholder for JWT/session later.
-- **Facebook OAuth (Phase 1):** Single Meta App; user consent only. Tokens encrypted at rest. No user App ID/Secret.
+**Current:**
+- **API:** Username/email + password login returns a JWT bearer token. Protected endpoints require `Authorization: Bearer <token>`.
+- **Facebook OAuth:** Single Meta App; user consent only. Tokens encrypted at rest. No user App ID/Secret.
+- **Automation safety:** Generated drafts are approval-required by default; scheduled publishing only executes approved content.
 
-To use the API, pass `user_id` as a query parameter. For Facebook login: `GET /api/v1/auth/facebook/login?user_id=1`.
+For local development, create an account with `POST /api/v1/auth/signup`, log in with `POST /api/v1/auth/login`, and send the returned bearer token on protected requests.
 
 ## Environment Variables
 

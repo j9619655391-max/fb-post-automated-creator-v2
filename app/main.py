@@ -13,9 +13,8 @@ from pydantic import ValidationError
 from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
-from app.core.database import init_db
 from app.api.routes import api_router
-import app.models  # noqa: F401 - ensure all model tables registered before init_db()
+import app.models  # noqa: F401 - ensure all models are registered
 
 # Configure logging (minimal but correct)
 logging.basicConfig(
@@ -27,9 +26,8 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """Create DB tables on startup (safe to call every time)."""
-    init_db()
-    logger.info("Database tables initialized.")
+    """Start the API; schema migrations must be applied before process startup."""
+    logger.info("Database startup complete; Alembic owns schema migrations.")
     yield
     # no shutdown cleanup needed for SQLite
 

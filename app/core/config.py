@@ -26,6 +26,9 @@ class Settings(BaseSettings):
 
     # Gemini API (optional) – for AI-generated content themes
     gemini_api_key: Optional[str] = None  # Get from https://aistudio.google.com/apikey
+    gemini_model: str = "gemini-2.5-flash"
+    gemini_input_cost_per_million_usd: float = 0.30
+    gemini_output_cost_per_million_usd: float = 2.50
 
     # LinkedIn OAuth (Phase 6)
     linkedin_client_id: Optional[str] = None

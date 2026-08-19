@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { apiPost } from '../api/client';
 import type { PlatformStatus } from '../api/platforms';
 import { getPlatformsStatus, syncLinkedInAccounts } from '../api/platforms';
 
@@ -7,6 +8,7 @@ export default function Platforms() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
+    const [connecting, setConnecting] = useState(false);
 
     const fetchStatus = async () => {
         try {
@@ -23,15 +25,20 @@ export default function Platforms() {
         fetchStatus();
     }, []);
 
-    const handleConnectFacebook = () => {
-        const token = localStorage.getItem('token');
-        window.location.href = `/api/v1/auth/facebook/login?token=${token}`;
+    const initiateOAuth = async (provider: 'facebook' | 'linkedin') => {
+        setConnecting(true);
+        setError(null);
+        try {
+            const result = await apiPost<{ authorize_url: string }>(`auth/${provider}/login`);
+            window.location.assign(result.authorize_url);
+        } catch (err: any) {
+            setError(err.message || `Failed to start ${provider} connection`);
+            setConnecting(false);
+        }
     };
 
-    const handleConnectLinkedIn = () => {
-        const token = localStorage.getItem('token');
-        window.location.href = `/api/v1/auth/linkedin/login?token=${token}`;
-    };
+    const handleConnectFacebook = () => initiateOAuth('facebook');
+    const handleConnectLinkedIn = () => initiateOAuth('linkedin');
 
     const handleSyncLinkedIn = async () => {
         setSyncing(true);
@@ -88,6 +95,7 @@ export default function Platforms() {
                                 </div>
                                 <button
                                     onClick={handleConnectFacebook}
+                                    disabled={connecting}
                                     className="w-full py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
                                 >
                                     Reconnect / Change Pages
@@ -145,6 +153,7 @@ export default function Platforms() {
                                     </button>
                                     <button
                                         onClick={handleConnectLinkedIn}
+                                        disabled={connecting}
                                         className="flex-1 py-2 bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition-colors text-sm font-medium"
                                     >
                                         Reconnect

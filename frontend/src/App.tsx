@@ -17,6 +17,7 @@ import Platforms from './pages/Platforms';
 import Organizations from './pages/Organizations';
 import Billing from './pages/Billing';
 import SystemSettings from './pages/SystemSettings';
+import AutomationPlans from './pages/AutomationPlans';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -49,6 +50,7 @@ function AppRoutes() {
         <Route path="users" element={<Users />} />
         <Route path="insights" element={<Insights />} />
         <Route path="calendar" element={<Calendar />} />
+        <Route path="automation-plans" element={<AutomationPlans />} />
         <Route path="billing" element={<Billing />} />
         <Route path="system-settings" element={<SystemSettings />} />
       </Route>
