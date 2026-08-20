@@ -88,3 +88,26 @@ A GitHub Actions workflow was added to run Python compilation, the complete back
 ## Remaining boundary
 
 The deterministic moderation layer is intentionally conservative and explainable; it does not replace provider policy enforcement, media scanning, brand-specific rules, or human approval. Real provider sandbox publishing and production infrastructure validation still require configured Meta/Instagram/LinkedIn credentials and deployment endpoints.
+
+
+## Provider sandbox readiness checkpoint
+
+A safe provider-readiness diagnostic now validates Meta, Instagram/Meta, LinkedIn, Gemini, database, Celery broker, encryption, production secret, debug mode, and OAuth callback configuration without making any external API calls or printing secret values. Strict mode is available for deployment gates and correctly reports missing local provider credentials until they are supplied.
+
+The local sandbox workflow is documented in `docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK.md`. It covers PostgreSQL, Redis, FastAPI, Celery Worker, Celery Beat, frontend startup, OAuth callback tunneling, approval-required rollout, provider-specific prerequisites, and teardown. `docker-compose.local.yml` provides a reproducible PostgreSQL 16 and Redis 7 data layer. `.env.example` now includes LinkedIn OAuth variables and exact local callback paths, and the README links to the runbook.
+
+## Validation
+
+| Check | Result |
+|---|---:|
+| Provider readiness diagnostic | Passed; no network calls made |
+| Strict readiness missing-credential behavior | Passed |
+| Backend tests | **26 passed** |
+| Python compilation | Passed |
+| Frontend build | Passed |
+| PostgreSQL Alembic drift check | Passed |
+| Git whitespace check | Passed |
+
+## Remaining provider gate
+
+Actual E2E publishing remains intentionally gated on user-supplied Meta and LinkedIn developer credentials, connected test targets, and callback URLs. Until then, local and mocked validation remains the safe execution mode.

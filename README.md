@@ -75,6 +75,16 @@ app/
    ```
    Tests use in-memory SQLite (no `.db` file). Requires `httpx<0.28` (see requirements.txt).
 
+### Local provider sandbox
+
+For PostgreSQL, Redis, Celery, OAuth callbacks, and safe Meta/Instagram/LinkedIn sandbox validation, follow [docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK.md](docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK.md). The provider readiness command is safe and performs no network calls:
+
+```bash
+python scripts/provider_readiness.py
+```
+
+The optional `docker-compose.local.yml` starts only PostgreSQL and Redis; run FastAPI, Celery Worker, Celery Beat, and the frontend in separate terminals as described in the runbook.
+
 ### Docker
 
 1. **Build and run (image includes API + built frontend):**
@@ -180,6 +190,7 @@ Copy `.env.example` to `.env` and configure:
 - `DEBUG`: Enable debug mode
 - `API_PREFIX`: API route prefix
 - **Facebook OAuth (optional):** `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIRECT_URI`, `TOKEN_ENCRYPTION_KEY` (e.g. from `Fernet.generate_key().decode()`)
+- **LinkedIn OAuth (optional):** `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI`
 - **Cron (optional):** `CRON_SECRET` — secret for `POST /api/v1/cron/run` (server-side only)
 - **Gemini (optional):** `GEMINI_API_KEY` — for AI theme generation on New content (GET /vce/generate-themes)
 - **Celery (optional):** `CELERY_BROKER_URL` — Redis URL for scheduled Facebook posts (default `redis://localhost:6379/0`). Run Redis and: `celery -A app.scheduler worker -l info`

@@ -66,3 +66,12 @@ The AI draft pipeline now includes deterministic moderation and exact duplicate 
 Scheduled-post responses now include provider labels, retryability, recovery action, and recovery hints. The dashboard uses those fields for clearer re-authentication, retry, policy-review, and generic-review actions. A GitHub Actions workflow now validates Python compilation, backend tests, PostgreSQL migrations, and the frontend build on changes to `main`.
 
 Application-side Pydantic v2 configuration warnings and the content approval UTC timestamp warning were cleaned up. The local validation suite currently reports **26 backend tests passed**, Python compilation passed, frontend build passed, and whitespace checks passed.
+
+
+## Provider sandbox readiness checkpoint
+
+The repository now includes a no-network provider-readiness diagnostic for Meta/Facebook, Instagram/Meta, LinkedIn, Gemini, encryption, database, Celery, secret, debug, and OAuth callback settings. A strict mode is available for deployment gates and reports missing credentials without exposing secret values.
+
+A reproducible local runbook and `docker-compose.local.yml` were added for PostgreSQL 16, Redis 7, FastAPI, Celery Worker, Celery Beat, frontend startup, OAuth tunneling, safe approval-required sandbox tests, and teardown. LinkedIn OAuth variables and exact callback examples are now included in `.env.example` and the README.
+
+Local validation remains green with **26 backend tests passed**, Python compilation passed, frontend build passed, PostgreSQL Alembic drift check passed, and whitespace checks passed. Real provider publishing remains gated on developer credentials and connected test accounts.
