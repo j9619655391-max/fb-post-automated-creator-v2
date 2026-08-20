@@ -1,6 +1,39 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: fb-post-app-postgres
+    environment:
+      POSTGRES_USER: fb_post
+      POSTGRES_PASSWORD: local_staging_password
+      POSTGRES_DB: fb_post_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - fb_post_app_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fb_post -d fb_post_local"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: fb-post-app-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - fb_post_app_redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    restart: unless-stopped
+
   api:
     build: .
+    container_name: fb-post-app-api
     ports:
       - "8000:8000"
     volumes:
@@ -9,23 +42,21 @@ services:
       - ./data:/app/data
     env_file:
       - .env
-    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
-      - DATABASE_URL=sqlite:////app/data/content_platform.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      DATABASE_URL: postgresql+psycopg://fb_post:local_staging_password@postgres:5432/fb_post_local
+      CELERY_BROKER_URL: redis://redis:6379/0
+    command: sh -c "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"
     depends_on:
-      - redis
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   celery:
     build: .
-    command: sh -c "alembic upgrade head && exec celery -A app.scheduler worker -l info"
+    container_name: fb-post-app-celery
+    command: celery -A app.scheduler worker -l info
     volumes:
       - ./app:/app/app
       - ./scripts:/app/scripts
@@ -33,15 +64,19 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=sqlite:////app/data/content_platform.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      DATABASE_URL: postgresql+psycopg://fb_post:local_staging_password@postgres:5432/fb_post_local
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
 
   celery-beat:
     build: .
-    command: sh -c "alembic upgrade head && exec celery -A app.scheduler beat -l info"
+    container_name: fb-post-app-celery-beat
+    command: celery -A app.scheduler beat -l info
     volumes:
       - ./app:/app/app
       - ./scripts:/app/scripts
@@ -49,8 +84,15 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=sqlite:////app/data/content_platform.db
-      - CELERY_BROKER_URL=redis://redis:6379/0
+      DATABASE_URL: postgresql+psycopg://fb_post:local_staging_password@postgres:5432/fb_post_local
+      CELERY_BROKER_URL: redis://redis:6379/0
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
+
+volumes:
+  fb_post_app_pgdata:
+  fb_post_app_redisdata:

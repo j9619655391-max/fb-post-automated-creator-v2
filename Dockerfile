@@ -16,9 +16,12 @@ WORKDIR /app
 
 # Install Python dependencies
 COPY requirements.txt .
+COPY alembic.ini .
+COPY alembic ./alembic
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code and scripts
+
 COPY app ./app
 COPY scripts ./scripts
 

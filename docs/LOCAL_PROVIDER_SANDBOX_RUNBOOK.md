@@ -54,7 +54,21 @@ sudo -u postgres psql -c "CREATE USER fb_post WITH PASSWORD 'local_staging_passw
 sudo -u postgres psql -c "CREATE DATABASE fb_post_local OWNER fb_post;"
 ```
 
-## 3. Apply migrations and run readiness checks
+## 3. Start the complete local stack
+
+For the connected Windows machine, the repository now includes one-click lifecycle scripts:
+
+```text
+start-local.bat   Start PostgreSQL, Redis, API, Celery Worker, and Celery Beat
+status-local.bat  Show containers, API status, and Celery worker ping
+stop-local.bat    Stop the local stack
+```
+
+From the repository folder, double-click `start-local.bat`, or run it from Command Prompt. The full `docker-compose.yml` uses Python 3.11 inside the containers, so the host Python version does not affect the API, migrations, or workers. The API container is the only service that applies Alembic migrations; this avoids concurrent migration races between API, Worker, and Beat.
+
+The application UI and API are served at `http://localhost:8000`. The frontend does not need a separate development server when using the Docker deployment.
+
+## 4. Apply migrations and run readiness checks
 
 ```bash
 alembic upgrade head
@@ -70,7 +84,7 @@ python scripts/provider_readiness.py --strict
 
 The readiness diagnostic never calls Meta, Instagram, LinkedIn, or Gemini and never prints secret values.
 
-## 4. Start the application processes
+## 5. Start the application processes manually
 
 Use separate terminals from the repository root:
 
@@ -94,7 +108,7 @@ npm run dev
 
 The API is available at `http://localhost:8000`, the frontend at `http://localhost:5173`, and the API documentation at `http://localhost:8000/docs`.
 
-## 5. Safe validation order
+## 6. Safe validation order
 
 First validate signup/login, content generation, moderation rejection, duplicate detection, approval, target selection, quota rejection, and scheduled-post state transitions using local or mocked providers. Then connect one Meta test Page, one Instagram Business account, or one LinkedIn test account at a time.
 
@@ -102,7 +116,7 @@ Use the authenticated `POST /api/v1/auth/facebook/login` or `POST /api/v1/auth/l
 
 Keep the first real publish test as a manually approved single post. Verify the resulting provider post ID, local `POSTED` status, audit record, and dashboard recovery behavior before testing retries or scheduled execution.
 
-## 6. Provider-specific prerequisites
+## 7. Provider-specific prerequisites
 
 | Provider | Required local setup | First safe test |
 |---|---|---|
@@ -112,7 +126,7 @@ Keep the first real publish test as a manually approved single post. Verify the 
 
 Provider API calls remain disabled until the corresponding credentials and connected test target are supplied. Do not use personal production pages or accounts for the first test.
 
-## 7. Stop and reset
+## 8. Stop and reset
 
 Stop the local API, worker, and Beat processes with `Ctrl+C`. Stop the Docker data layer with:
 
