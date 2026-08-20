@@ -111,3 +111,21 @@ The local sandbox workflow is documented in `docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK
 ## Remaining provider gate
 
 Actual E2E publishing remains intentionally gated on user-supplied Meta and LinkedIn developer credentials, connected test targets, and callback URLs. Until then, local and mocked validation remains the safe execution mode.
+
+
+## Windows local integration checkpoint
+
+The Windows Docker deployment was corrected and revalidated. The API image now includes Alembic configuration and migrations, only the API runs startup migrations, the API seeds missing default content categories/templates idempotently, and API/Celery/Beat reuse one local application image. Windows lifecycle scripts (`start-local.bat`, `status-local.bat`, and `stop-local.bat`) were added.
+
+The browser-console integration issues were mapped and addressed. Workspace list/create/member flows pass locally. Missing Gemini configuration now returns an explicit provider configuration response instead of a generic generation failure. Platform status exposes provider readiness, and the frontend prevents predictable Facebook/LinkedIn OAuth 503 calls when credentials are absent, showing setup guidance instead.
+
+| Local check | Result |
+|---|---:|
+| API root and docs | Passed |
+| Signup/login/authenticated user smoke | Passed |
+| Organization list/create/member smoke | Passed |
+| Missing Gemini generation gate | Passed; returns 503 with setup guidance |
+| PostgreSQL Alembic drift | Passed |
+| Celery worker ping | Passed |
+| Celery Beat startup | Passed |
+| Frontend production build | Passed |

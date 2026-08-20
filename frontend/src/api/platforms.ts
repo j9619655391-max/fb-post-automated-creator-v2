@@ -4,6 +4,8 @@ export interface PlatformStatus {
     platform: string;
     connected: boolean;
     accounts_count: number;
+    configured: boolean;
+
 }
 
 export interface LinkedInAccount {

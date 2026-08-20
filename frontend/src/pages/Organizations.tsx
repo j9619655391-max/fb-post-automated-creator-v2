@@ -54,9 +54,10 @@ export default function Organizations() {
             setNewOrgName('');
             setNewOrgSlug('');
             await refreshOrganizations();
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to create organization');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create organization');
         }
+
     }
 
     async function handleAddMember(e: FormEvent) {
@@ -69,9 +70,10 @@ export default function Organizations() {
             setSuccess('Member invited successfully!');
             setNewMemberEmail('');
             loadMembers(currentOrg.id);
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to add member');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to add member');
         }
+
     }
 
     async function handleRemoveMember(userId: number) {
@@ -80,9 +82,10 @@ export default function Organizations() {
             await removeOrgMember(currentOrg.id, userId);
             loadMembers(currentOrg.id);
             setSuccess('Member removed');
-        } catch (err: any) {
-            setError(err.response?.data?.detail || 'Failed to remove member');
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to remove member');
         }
+
     }
 
     return (

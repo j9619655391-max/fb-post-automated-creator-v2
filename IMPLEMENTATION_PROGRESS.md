@@ -75,3 +75,12 @@ The repository now includes a no-network provider-readiness diagnostic for Meta/
 A reproducible local runbook and `docker-compose.local.yml` were added for PostgreSQL 16, Redis 7, FastAPI, Celery Worker, Celery Beat, frontend startup, OAuth tunneling, safe approval-required sandbox tests, and teardown. LinkedIn OAuth variables and exact callback examples are now included in `.env.example` and the README.
 
 Local validation remains green with **26 backend tests passed**, Python compilation passed, frontend build passed, PostgreSQL Alembic drift check passed, and whitespace checks passed. Real provider publishing remains gated on developer credentials and connected test accounts.
+
+
+## Windows local integration checkpoint
+
+The Windows Docker deployment now runs PostgreSQL 16, Redis 7, FastAPI, Celery Worker, Celery Beat, and the frontend through a shared local application image. Alembic configuration/migrations are included in the image, only the API applies startup migrations, and missing default content categories/templates are seeded idempotently. Windows lifecycle scripts were added for start, status, and stop operations.
+
+Workspace list/create/member flows were verified locally. Missing Gemini configuration now produces an explicit provider-configuration response, while platform status exposes readiness and the frontend prevents predictable OAuth 503 requests when provider credentials are not configured.
+
+Local checks passed for API root/docs, authenticated HTTP smoke, organization list/create/member flows, PostgreSQL Alembic drift, Celery worker ping, Celery Beat startup, and the frontend production build. Real AI generation remains disabled until `GEMINI_API_KEY` is added to the local `.env`.

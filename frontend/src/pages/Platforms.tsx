@@ -26,8 +26,14 @@ export default function Platforms() {
     }, []);
 
     const initiateOAuth = async (provider: 'facebook' | 'linkedin') => {
+        const status = platforms.find((item) => item.platform === provider);
+        if (!status?.configured) {
+            setError(`${provider === 'facebook' ? 'Facebook' : 'LinkedIn'} OAuth is not configured. Add the provider credentials and callback URL to .env, then restart the local stack.`);
+            return;
+        }
         setConnecting(true);
         setError(null);
+
         try {
             const result = await apiPost<{ authorize_url: string }>(`auth/${provider}/login`);
             window.location.assign(result.authorize_url);
