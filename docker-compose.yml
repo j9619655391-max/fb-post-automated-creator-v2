@@ -39,7 +39,10 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/app/app
+      - ./alembic:/app/alembic
       - ./scripts:/app/scripts
+      - ./frontend/dist:/app/frontend/dist
+      - ./tests:/app/tests
       - ./data:/app/data
     env_file:
       - .env
@@ -61,7 +64,10 @@ services:
     command: celery -A app.scheduler worker -l info
     volumes:
       - ./app:/app/app
+      - ./alembic:/app/alembic
       - ./scripts:/app/scripts
+      - ./frontend/dist:/app/frontend/dist
+      - ./tests:/app/tests
       - ./data:/app/data
     env_file:
       - .env
@@ -82,7 +88,10 @@ services:
     command: celery -A app.scheduler beat -l info
     volumes:
       - ./app:/app/app
+      - ./alembic:/app/alembic
       - ./scripts:/app/scripts
+      - ./frontend/dist:/app/frontend/dist
+      - ./tests:/app/tests
       - ./data:/app/data
     env_file:
       - .env

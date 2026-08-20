@@ -72,7 +72,12 @@ export function apiPost<T>(
   });
 }
 
+export function apiPut<T>(path: string, body: object, params?: Record<string, string | number | undefined>): Promise<T> {
+  return apiFetch<T>(path, { method: 'PUT', params, body: JSON.stringify(body) });
+}
+
 export function apiPatch<T>(path: string, body: object, params?: Record<string, string | number | undefined>): Promise<T> {
+
   return apiFetch<T>(path, { method: 'PATCH', params, body: JSON.stringify(body) });
 }
 

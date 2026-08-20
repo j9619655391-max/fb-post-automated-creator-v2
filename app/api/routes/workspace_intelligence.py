@@ -1,0 +1,277 @@
+"""Workspace business intelligence and source provenance routes."""
+import json
+from datetime import datetime, timezone
+from typing import Any
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+
+from app.api.dependencies import get_current_user
+from app.core.database import get_db
+from app.models.organization import OrganizationMember, OrganizationRole
+from app.models.user import User
+from app.models.workspace_intelligence import WorkspaceProfile, WorkspaceSource
+from app.services.workspace_intelligence_service import (
+    WorkspaceSourceRefreshError,
+    refresh_website_source,
+    refresh_workspace_web_sources,
+)
+from app.schemas.workspace_intelligence import (
+    WorkspaceIntelligenceResponse,
+    WorkspaceProfileResponse,
+    WorkspaceProfileUpsert,
+    WorkspaceSourceCreate,
+    WorkspaceSourceResponse,
+)
+
+router = APIRouter()
+
+
+def _member_or_403(db: Session, org_id: int, user_id: int, *, write: bool = False) -> OrganizationMember:
+    member = (
+        db.query(OrganizationMember)
+        .filter(
+            OrganizationMember.organization_id == org_id,
+            OrganizationMember.user_id == user_id,
+        )
+        .first()
+    )
+    if member is None:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not a member of this organization")
+    if write and member.role not in [OrganizationRole.OWNER, OrganizationRole.ADMIN, OrganizationRole.EDITOR]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Insufficient permissions")
+    return member
+
+
+def _json_list(value: str | None) -> list[str]:
+    if not value:
+        return []
+    try:
+        parsed = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return []
+    return [str(item) for item in parsed] if isinstance(parsed, list) else []
+
+
+def _json_dict(value: str | None) -> dict[str, Any]:
+    if not value:
+        return {}
+    try:
+        parsed = json.loads(value)
+    except (TypeError, json.JSONDecodeError):
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _profile_payload(profile: WorkspaceProfile) -> dict[str, Any]:
+    return {
+        "id": profile.id,
+        "organization_id": profile.organization_id,
+        "business_description": profile.business_description,
+        "mission": profile.mission,
+        "industry": profile.industry,
+        "services": _json_list(profile.services_json),
+        "products": _json_list(profile.products_json),
+        "target_audience": profile.target_audience,
+        "locations": _json_list(profile.locations_json),
+        "brand_voice": profile.brand_voice,
+        "tone": profile.tone,
+        "keywords": _json_list(profile.keywords_json),
+        "preferred_languages": _json_list(profile.preferred_languages_json),
+        "contact_email": profile.contact_email,
+        "contact_phone": profile.contact_phone,
+        "whatsapp_display_phone": profile.whatsapp_display_phone,
+        "whatsapp_business_account_id": profile.whatsapp_business_account_id,
+        "website_url": profile.website_url,
+        "linkedin_url": profile.linkedin_url,
+        "facebook_url": profile.facebook_url,
+        "instagram_url": profile.instagram_url,
+        "whatsapp_url": profile.whatsapp_url,
+        "approved_claims": _json_list(profile.approved_claims_json),
+        "prohibited_claims": _json_list(profile.prohibited_claims_json),
+        "last_refreshed_at": profile.last_refreshed_at,
+        "created_at": profile.created_at,
+        "updated_at": profile.updated_at,
+    }
+
+
+def _source_payload(source: WorkspaceSource) -> dict[str, Any]:
+    return {
+        "id": source.id,
+        "organization_id": source.organization_id,
+        "source_type": source.source_type,
+        "provider": source.provider,
+        "url": source.url,
+        "external_id": source.external_id,
+        "title": source.title,
+        "content_text": source.content_text,
+        "excerpt": source.excerpt,
+        "metadata": _json_dict(source.metadata_json),
+        "trust_level": source.trust_level,
+        "review_status": source.review_status,
+        "is_active": source.is_active,
+        "last_fetched_at": source.last_fetched_at,
+        "created_at": source.created_at,
+        "updated_at": source.updated_at,
+    }
+
+
+def _apply_profile(profile: WorkspaceProfile, payload: WorkspaceProfileUpsert) -> None:
+    values = payload.model_dump()
+    list_fields = {
+        "services": "services_json",
+        "products": "products_json",
+        "locations": "locations_json",
+        "keywords": "keywords_json",
+        "preferred_languages": "preferred_languages_json",
+        "approved_claims": "approved_claims_json",
+        "prohibited_claims": "prohibited_claims_json",
+    }
+    for field, value in values.items():
+        column = list_fields.get(field, field)
+        if field in list_fields:
+            value = json.dumps(value, ensure_ascii=False)
+        elif value is not None and field.endswith("_url"):
+            value = str(value)
+        setattr(profile, column, value)
+
+
+@router.get("/{org_id}/intelligence", response_model=WorkspaceIntelligenceResponse)
+def get_workspace_intelligence(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id)
+    profile = db.query(WorkspaceProfile).filter(WorkspaceProfile.organization_id == org_id).first()
+    sources = (
+        db.query(WorkspaceSource)
+        .filter(WorkspaceSource.organization_id == org_id, WorkspaceSource.is_active.is_(True))
+        .order_by(WorkspaceSource.created_at.desc())
+        .all()
+    )
+    return {
+        "profile": _profile_payload(profile) if profile else None,
+        "sources": [_source_payload(source) for source in sources],
+        "source_count": len(sources),
+        "approved_source_count": sum(source.review_status == "approved" for source in sources),
+    }
+
+
+@router.put("/{org_id}/intelligence/profile", response_model=WorkspaceProfileResponse)
+def upsert_workspace_profile(
+    org_id: int,
+    payload: WorkspaceProfileUpsert,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    profile = db.query(WorkspaceProfile).filter(WorkspaceProfile.organization_id == org_id).first()
+    if profile is None:
+        profile = WorkspaceProfile(organization_id=org_id)
+        db.add(profile)
+        db.flush()
+    _apply_profile(profile, payload)
+    db.commit()
+    db.refresh(profile)
+    return _profile_payload(profile)
+
+
+@router.post("/{org_id}/intelligence/sources", response_model=WorkspaceSourceResponse, status_code=status.HTTP_201_CREATED)
+def add_workspace_source(
+    org_id: int,
+    payload: WorkspaceSourceCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    if payload.source_type == "website" and payload.url is None:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Website sources require a URL")
+    source = WorkspaceSource(
+        organization_id=org_id,
+        source_type=payload.source_type,
+        provider=payload.provider,
+        url=str(payload.url) if payload.url else None,
+        external_id=payload.external_id,
+        title=payload.title,
+        content_text=payload.content_text,
+        excerpt=payload.excerpt,
+        metadata_json=json.dumps(payload.metadata, ensure_ascii=False),
+        trust_level=payload.trust_level,
+        review_status=payload.review_status,
+    )
+    db.add(source)
+    try:
+        db.commit()
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="This workspace source already exists") from exc
+    db.refresh(source)
+    return _source_payload(source)
+
+
+@router.post("/{org_id}/intelligence/sources/{source_id}/refresh", response_model=WorkspaceSourceResponse)
+def refresh_workspace_source(
+    org_id: int,
+    source_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    source = (
+        db.query(WorkspaceSource)
+        .filter(
+            WorkspaceSource.id == source_id,
+            WorkspaceSource.organization_id == org_id,
+            WorkspaceSource.is_active.is_(True),
+        )
+        .first()
+    )
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace source not found")
+    try:
+        return _source_payload(refresh_website_source(db, source))
+    except WorkspaceSourceRefreshError as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post("/{org_id}/intelligence/refresh")
+def refresh_workspace_sources(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    refreshed, errors = refresh_workspace_web_sources(db, org_id)
+    profile = db.query(WorkspaceProfile).filter(WorkspaceProfile.organization_id == org_id).first()
+    if profile:
+        profile.last_refreshed_at = datetime.now(timezone.utc)
+        db.commit()
+    return {
+        "refreshed_source_ids": [source.id for source in refreshed],
+        "errors": errors,
+        "refreshed_count": len(refreshed),
+    }
+
+
+@router.delete("/{org_id}/intelligence/sources/{source_id}")
+def remove_workspace_source(
+    org_id: int,
+    source_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    source = (
+        db.query(WorkspaceSource)
+        .filter(
+            WorkspaceSource.id == source_id,
+            WorkspaceSource.organization_id == org_id,
+        )
+        .first()
+    )
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace source not found")
+    source.is_active = False
+    db.commit()
+    return {"detail": "Workspace source removed"}

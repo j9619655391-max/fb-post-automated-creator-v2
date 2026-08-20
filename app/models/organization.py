@@ -40,6 +40,17 @@ class Organization(Base):
 
     # Relationships
     members = relationship("OrganizationMember", back_populates="organization", cascade="all, delete-orphan")
+    workspace_profile = relationship(
+        "WorkspaceProfile",
+        back_populates="organization",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+    workspace_sources = relationship(
+        "WorkspaceSource",
+        back_populates="organization",
+        cascade="all, delete-orphan",
+    )
     created_by = relationship("User", backref="created_organizations")
 
 

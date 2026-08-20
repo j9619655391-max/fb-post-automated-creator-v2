@@ -129,3 +129,27 @@ The browser-console integration issues were mapped and addressed. Workspace list
 | Celery worker ping | Passed |
 | Celery Beat startup | Passed |
 | Frontend production build | Passed |
+
+
+## Workspace intelligence and source-aware generation checkpoint
+
+Workspace business intelligence is now organization-scoped and permissioned. Owners, administrators, and editors can maintain the structured profile and source records; ordinary members can read intelligence but cannot modify it. The API supports profile upsert/retrieval, source creation, source refresh, bulk refresh, and soft deletion. Personal/private data collection is not part of the ingestion workflow; the feature is designed for authorized public business information and official API data.
+
+Website source ingestion includes SSRF protections for schemes, credentials, localhost, private/reserved/link-local/multicast addresses, robots.txt handling, HTML-only extraction, response and text limits, safe redirect validation, and sanitized text extraction with BeautifulSoup. Refreshes deliberately downgrade content to `pending` review and `user_supplied` trust until a human reviews the newly fetched material.
+
+Generation context is restricted to the active approved source set and the organization profile. Prompt instructions identify source excerpts as untrusted reference data, prevent embedded source commands from being followed, require supported claims, and capture source type/title/URL/trust-level hints in the content-generation audit record for human review. This context does not change the approval-required publishing default or bypass moderation, duplication, quota, or provider failure controls.
+
+| Check | Result |
+|---|---:|
+| Workspace intelligence endpoint tests | **5 passed** |
+| Full backend suite | **31 passed** |
+| Python compilation | Passed |
+| Frontend `npm run build` | Passed |
+| PostgreSQL workspace migration upgrade | Passed |
+| PostgreSQL `alembic check` | Passed; no new upgrade operations |
+| Docker API health endpoint | Passed; HTTP 200 |
+| Docker root/frontend response | Passed; HTTP 200 |
+
+## Remaining production boundary
+
+The feature is ready for local controlled use, but automatic source refresh and actual publishing still require configured provider credentials, approved HTTPS callbacks, authorized business accounts, and operational monitoring. External provider sandbox E2E tests, alerting/metrics, and any future autonomous campaign mode remain gated behind the existing human-approval and credential requirements.

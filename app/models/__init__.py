@@ -16,6 +16,7 @@ from app.models.system_setting import SystemSetting
 from app.models.content_generation import ContentGenerationJob, GenerationStatus
 from app.models.generation_plan import ContentGenerationPlan, GenerationPlanStatus, GenerationRecurrence, ApprovalMode
 from app.models.content_generation_usage import ContentGenerationUsage
+from app.models.workspace_intelligence import WorkspaceProfile, WorkspaceSource
 
 __all__ = [
     "User", "Content", "Media", "AuditLog", "OAuthState", "MetaUserToken", "LinkedInUserToken", "LinkedInAccount",
@@ -24,7 +25,8 @@ __all__ = [
     "ScheduledPost", "ScheduledPostStatus", "ScheduledPlatform", "PostingPreference",
     "ContentCategory", "HookTemplate", "ContentPublishStatus",
     "SystemSetting", "ContentGenerationJob", "GenerationStatus",
-    "ContentGenerationPlan", "GenerationPlanStatus", "GenerationRecurrence", "ApprovalMode",
-    "ContentGenerationUsage",
+        "ContentGenerationPlan", "GenerationPlanStatus", "GenerationRecurrence", "ApprovalMode",
+    "ContentGenerationUsage", "WorkspaceProfile", "WorkspaceSource",
+
 ]
 

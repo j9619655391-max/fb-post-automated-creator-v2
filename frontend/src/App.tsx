@@ -18,6 +18,7 @@ import Organizations from './pages/Organizations';
 import Billing from './pages/Billing';
 import SystemSettings from './pages/SystemSettings';
 import AutomationPlans from './pages/AutomationPlans';
+import WorkspaceIntelligence from './pages/WorkspaceIntelligence';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -45,7 +46,9 @@ function AppRoutes() {
         <Route path="content/:id/edit" element={<ContentForm />} />
         <Route path="meta-pages" element={<MetaPages />} />
         <Route path="platforms" element={<Platforms />} />
-        <Route path="organizations" element={<Organizations />} />
+                <Route path="organizations" element={<Organizations />} />
+        <Route path="workspace-intelligence" element={<WorkspaceIntelligence />} />
+
         <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="users" element={<Users />} />
         <Route path="insights" element={<Insights />} />

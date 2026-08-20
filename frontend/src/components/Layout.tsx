@@ -51,8 +51,10 @@ export default function Layout() {
                 { to: '/content', label: 'PRODUCTION' },
                 { to: '/insights', label: 'ANALYTICS' },
                 { to: '/platforms', label: 'NETWORK' },
-                { to: '/organizations', label: 'WORKSPACE' },
+                                { to: '/organizations', label: 'WORKSPACE' },
+                { to: '/workspace-intelligence', label: 'KNOWLEDGE' },
                 { to: '/billing', label: 'BILLING' }
+
               ].map(link => (
                 <Link
                   key={link.to}

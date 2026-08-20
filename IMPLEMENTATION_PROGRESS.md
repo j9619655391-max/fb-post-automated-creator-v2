@@ -84,3 +84,16 @@ The Windows Docker deployment now runs PostgreSQL 16, Redis 7, FastAPI, Celery W
 Workspace list/create/member flows were verified locally. Missing Gemini configuration now produces an explicit provider-configuration response, while platform status exposes readiness and the frontend prevents predictable OAuth 503 requests when provider credentials are not configured.
 
 Local checks passed for API root/docs, authenticated HTTP smoke, organization list/create/member flows, PostgreSQL Alembic drift, Celery worker ping, Celery Beat startup, and the frontend production build. Real AI generation remains disabled until `GEMINI_API_KEY` is added to the local `.env`.
+
+
+## Workspace business intelligence checkpoint
+
+Each organization now has a structured business intelligence profile for authorized public business context, including description, mission, industry, services, products, audience, locations, brand voice, preferred languages, official website and social URLs, WhatsApp Business details, public business contact details, approved claims, and prohibited claims. The profile is managed through the new `/api/v1/organizations/{org_id}/intelligence` API surface and the frontend KNOWLEDGE workspace screen.
+
+Workspace sources support official or user-supplied website, Facebook, Instagram, LinkedIn, WhatsApp Business, and manually reviewed records. Website refreshes are restricted to public HTTP(S) destinations, reject credentials and private/reserved IP ranges, perform a robots.txt check, allow only HTML/XHTML extraction, strip non-content elements, cap response/text sizes, validate safe redirects, and reset refreshed content to `pending` review so a person must re-approve changed facts.
+
+AI draft generation now loads the organization profile and only active, approved source excerpts. The Gemini prompt explicitly treats source text as reference data rather than instructions, rejects unsupported claims, and preserves source provenance hints in the generation audit metadata for human review. Approval-required publishing remains the default; workspace intelligence improves relevance but does not bypass moderation, duplicate detection, quotas, or approval gates.
+
+A corrective Alembic migration removes the redundant profile organization index, and the local Compose file live-mounts application code, migrations, tests, and frontend output for Windows development. Validation completed with **31 backend tests passed**, Python compilation passed, frontend production build passed, PostgreSQL Alembic upgrade/check passed, and API/Docker health checks passed.
+
+Remaining production work is unchanged: configure real Meta/Facebook, Instagram, LinkedIn, and Gemini credentials; validate provider sandbox publishing and OAuth callbacks over HTTPS; add external observability and alerting; and only then evaluate a controlled autonomous campaign flag while retaining human approval safeguards.
