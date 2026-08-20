@@ -108,9 +108,9 @@ export default function Dashboard() {
           <h2 className="text-lg font-medium text-slate-800 mb-3">Scheduled posts</h2>
           <ul className="bg-white rounded-xl border border-slate-200 divide-y divide-slate-100 overflow-hidden mb-8">
             {scheduled.map((sp) => (
-              <li key={sp.id} className="block px-4 py-3 hover:bg-slate-50 flex items-center justify-between gap-2">
+              <li key={sp.id} className="relative block px-4 py-3 hover:bg-slate-50 flex items-center justify-between gap-2 min-h-[72px]">
                 <Link to={`/content/${sp.content_id}`} className="flex-1 flex items-center justify-between gap-2">
-                  <span className="text-slate-900">Content #{sp.content_id} · {sp.platform}</span>
+                  <span className="text-slate-900">Content #{sp.content_id} · {sp.provider_label}</span>
                   <div className="flex items-center gap-2">
                     <span className="text-slate-500 text-sm shrink-0">
                       {new Date(sp.scheduled_at).toLocaleString()}
@@ -120,8 +120,14 @@ export default function Dashboard() {
                     </span>
                   </div>
                 </Link>
+                {(sp.failure_reason || sp.recovery_hint) && (
+                  <div className="absolute left-4 right-4 mt-16 text-xs text-slate-500">
+                    {sp.last_error_code && <span className="font-semibold text-slate-600">{sp.last_error_code}: </span>}
+                    {sp.recovery_hint || sp.failure_reason}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 ml-2 shrink-0">
-                  {(sp.status === 'failed' || sp.status === 'dead_letter') && sp.last_error_code === 'AUTH_REQUIRED' && (
+                  {(sp.recovery_action === 'reauthenticate') && (
                     <button
                       onClick={handleReauthenticate}
                       className="text-xs border border-amber-300 rounded px-2 py-1 text-amber-700 hover:bg-amber-50"
@@ -129,7 +135,7 @@ export default function Dashboard() {
                       Re-authenticate
                     </button>
                   )}
-                  {(sp.status === 'failed' || sp.status === 'dead_letter') && (
+                  {(sp.recovery_action === 'retry' || sp.recovery_action === 'reauthenticate' || sp.retryable) && (
                     <button
                       onClick={() => handleRetry(sp.id)}
                       className="text-xs border border-indigo-300 rounded px-2 py-1 text-indigo-700 hover:bg-indigo-50"

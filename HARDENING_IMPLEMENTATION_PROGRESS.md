@@ -63,3 +63,28 @@ Organization-scoped monthly AI quotas were added for request count and total tok
 ## Remaining production boundary
 
 Actual Meta Graph and LinkedIn sandbox publishing still requires configured provider credentials, approved callback URLs, and real test accounts. Production deployment should also add external metrics and alert routing, moderation and duplicate-content gates, CI/CD migration checks, and cleanup of existing Pydantic/SQLAlchemy deprecation warnings.
+
+
+## Additional hardening checkpoint: moderation, recovery diagnostics, and CI
+
+A deterministic moderation layer now runs after AI response validation and before an AI draft is persisted as content. It blocks a narrowly defined set of clearly dangerous instructions, illegal-drug trade language, self-harm encouragement, and deceptive financial claims. AI-provided risk flags remain attached to the generation job for human review. Organization-scoped exact duplicate detection also prevents repeated title/body pairs from entering the approval queue.
+
+Scheduled-post API responses now expose provider labels, retryability, recovery actions, and user-facing recovery hints derived from stable failure codes. The dashboard uses these fields to distinguish re-authentication, retry, policy-review, and generic review actions.
+
+A GitHub Actions workflow was added to run Python compilation, the complete backend test suite, PostgreSQL Alembic upgrade/drift validation, and the frontend production build on pushes and pull requests to `main`. Application-side Pydantic v2 configuration warnings and the content approval UTC timestamp warning were cleaned up without changing the approval-required publishing default.
+
+## Validation
+
+| Check | Result |
+|---|---:|
+| Backend tests | **26 passed** |
+| Python compilation | Passed |
+| Frontend `npm run build` | Passed |
+| Moderation and duplicate detection tests | Passed |
+| Recovery metadata serialization | Passed |
+| Git diff whitespace check | Passed |
+| Application-side Pydantic config warnings | Cleaned |
+
+## Remaining boundary
+
+The deterministic moderation layer is intentionally conservative and explainable; it does not replace provider policy enforcement, media scanning, brand-specific rules, or human approval. Real provider sandbox publishing and production infrastructure validation still require configured Meta/Instagram/LinkedIn credentials and deployment endpoints.

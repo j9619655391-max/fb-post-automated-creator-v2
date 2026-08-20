@@ -1,5 +1,5 @@
 """Pydantic schemas for content."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional, List
 
@@ -11,8 +11,7 @@ class ContentPublishStatusResponse(BaseModel):
     platform_post_id: Optional[str] = None
     error_message: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ContentBase(BaseModel):
     """Base content schema."""
@@ -54,8 +53,7 @@ class ContentResponse(ContentBase):
     generation_job_id: Optional[int] = None
     publish_statuses: List[ContentPublishStatusResponse] = []
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class ContentApprovalRequest(BaseModel):
     """Schema for approval/rejection request."""

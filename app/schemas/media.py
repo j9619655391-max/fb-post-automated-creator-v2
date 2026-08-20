@@ -1,5 +1,5 @@
 """Media schemas."""
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime
 from typing import Optional
 
@@ -19,5 +19,4 @@ class MediaResponse(MediaBase):
     # We'll provide a public URL in the response
     url: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)

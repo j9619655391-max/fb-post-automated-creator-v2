@@ -7,6 +7,7 @@ export interface ScheduledPost {
   id: number;
   content_id: number;
   platform: ScheduledPlatform;
+  provider_label: string;
   meta_page_id: number | null;
   linkedin_account_id: number | null;
   scheduled_at: string;
@@ -19,6 +20,9 @@ export interface ScheduledPost {
   completed_at: string | null;
   idempotency_key: string | null;
   created_at: string;
+  retryable: boolean;
+  recovery_action: 'reauthenticate' | 'retry' | 'review_policy' | 'review' | null;
+  recovery_hint: string | null;
 }
 
 export function listScheduledPosts(

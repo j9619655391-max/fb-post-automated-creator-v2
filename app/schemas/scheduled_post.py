@@ -35,6 +35,7 @@ class ScheduledPostResponse(BaseModel):
     id: int
     content_id: int
     platform: ScheduledPlatform
+    provider_label: str
     meta_page_id: Optional[int] = None
     linkedin_account_id: Optional[int] = None
     scheduled_at: datetime
@@ -47,6 +48,9 @@ class ScheduledPostResponse(BaseModel):
     idempotency_key: Optional[str] = None
     completed_at: Optional[datetime] = None
     created_at: datetime
+    retryable: bool = False
+    recovery_action: Optional[str] = None
+    recovery_hint: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

@@ -1,5 +1,5 @@
 """Pydantic schemas for Organizations."""
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from typing import Optional, List
 from app.models.organization import OrganizationRole, SubscriptionTier
@@ -24,8 +24,7 @@ class OrgMemberResponse(BaseModel):
     # We'll include the username for display
     username: Optional[str] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrgResponse(OrgBase):
@@ -40,8 +39,7 @@ class OrgResponse(OrgBase):
     subscription_status: Optional[str] = None
     subscription_ends_at: Optional[datetime] = None
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class OrgAddMemberRequest(BaseModel):

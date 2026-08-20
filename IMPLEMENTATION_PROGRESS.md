@@ -57,3 +57,12 @@ Redis-backed Celery staging validation is complete: the worker registered all sc
 The project currently validates with **23 backend tests passing**, Python compilation passing, frontend production build passing, PostgreSQL `alembic upgrade head` passing, and PostgreSQL `alembic check` reporting no drift.
 
 Actual external Meta/Instagram and LinkedIn sandbox publishing remains deployment-dependent because it requires real provider credentials, callback URLs, and connected test accounts. Moderation, external metrics/alerting, CI/CD, and deprecation-warning cleanup remain follow-up production hardening items.
+
+
+## Additional local hardening checkpoint
+
+The AI draft pipeline now includes deterministic moderation and exact duplicate detection before generated content enters the approval workflow. Clearly dangerous instructions, illegal-drug trade language, self-harm encouragement, and deceptive financial claims are blocked with validation feedback; AI risk flags remain available for human review.
+
+Scheduled-post responses now include provider labels, retryability, recovery action, and recovery hints. The dashboard uses those fields for clearer re-authentication, retry, policy-review, and generic-review actions. A GitHub Actions workflow now validates Python compilation, backend tests, PostgreSQL migrations, and the frontend build on changes to `main`.
+
+Application-side Pydantic v2 configuration warnings and the content approval UTC timestamp warning were cleaned up. The local validation suite currently reports **26 backend tests passed**, Python compilation passed, frontend build passed, and whitespace checks passed.

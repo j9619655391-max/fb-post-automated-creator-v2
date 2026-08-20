@@ -253,7 +253,7 @@ class ContentService:
         if approval_data.approved:
             content.status = ContentStatus.APPROVED
             content.approved_by_id = approver_id
-            content.approved_at = datetime.utcnow()
+            content.approved_at = datetime.now(timezone.utc)
             action = "content.approved"
             description = f"Content '{content.title}' approved"
         else:

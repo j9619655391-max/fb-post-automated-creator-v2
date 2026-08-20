@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
@@ -27,8 +27,7 @@ class LinkedInAccountResponse(BaseModel):
     name: str
     account_type: str
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 @router.get("/status", response_model=List[PlatformStatusResponse])
