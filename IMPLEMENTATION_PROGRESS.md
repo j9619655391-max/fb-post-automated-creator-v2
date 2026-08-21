@@ -129,3 +129,17 @@ Official sandbox prerequisites and links are recorded in `docs/PROVIDER_SANDBOX_
 Added an authenticated `GET /api/v1/platforms/sandbox-readiness` endpoint and Platforms UI card for non-publishing provider validation. When credentials are absent, it reports configuration gaps without making network calls. When an account is connected, it performs only safe read-only identity checks: Meta `/me/accounts` and LinkedIn `/v2/userinfo`. Instagram is explicitly reported as blocked until professional-account linkage and an Instagram account identifier are persisted; no publish endpoint is called.
 
 The local route smoke test returned the expected unauthenticated `401`. The complete backend suite now passes with **41 tests**, Python compilation passed, frontend production build passed, Alembic reports no drift, and the local Docker stack remains operational. No Facebook, Instagram, or LinkedIn post was created.
+
+
+## Production-readiness checkpoint: provider account modeling
+
+Provider account modeling now persists the Instagram professional-account linkage returned by Meta `/me/accounts` and exposes it safely in Meta Page responses. Instagram publishing prefers the persisted professional-account ID and uses the encrypted user access token required by the Instagram Graph API. Instagram readiness now reports the number of linked professional accounts instead of treating every Meta Page as Instagram-ready.
+
+LinkedIn account synchronization now discovers approved organization roles through the `organizationAcls` API and persists the role and state. Organization publishing is permission-gated: only approved administrator/content-admin roles can publish on behalf of an organization. The LinkedIn API version and OAuth scopes are configurable, and Meta OAuth scopes now include the Instagram permissions required for professional-account discovery and publishing.
+
+The provider-account migration is `f6a7b8c9d0e1_add_provider_account_metadata.py`. Local PostgreSQL validation passed after applying it. The provider synchronization tests pass (**2 focused tests**), the complete backend suite passes (**43 tests**), Python compilation passes, frontend production build passes, `alembic check` reports no drift, and the Docker API root returns HTTP 200. No external social post was created or published during validation.
+
+The remaining live-provider boundary is unchanged: real Meta/Instagram and LinkedIn credentials, approved callbacks, connected test accounts, public media URLs, and operator-approved sandbox publishing are required before E2E publishing validation. Human approval remains the default safety gate.
+
+
+Instagram controlled publishing now performs Meta's rolling content-publishing-limit preflight before creating a container, then polls `status_code` with a bounded configurable window and only calls `media_publish` after `FINISHED` or `PUBLISHED`. `ERROR`, `EXPIRED`, unknown states, exhausted polling, and quota exhaustion are surfaced through the existing publishing failure classifier and approval-required worker safeguards. The focused provider suite now covers Meta linkage, LinkedIn organization discovery, and the `IN_PROGRESS` to `FINISHED` Instagram path.

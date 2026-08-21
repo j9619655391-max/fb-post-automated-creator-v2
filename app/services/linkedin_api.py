@@ -2,14 +2,25 @@
 import httpx
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.token_crypto import decrypt_token
+
 from app.models.content import Content
 from app.models.linkedin_account import LinkedInAccount
 from app.models.content_execution import ContentPublishStatus, PublishStatusEnum
 from app.services.publish_errors import classify_publish_failure
 
 
+def _linkedin_headers(access_token: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {access_token}",
+        "LinkedIn-Version": settings.linkedin_api_version,
+        "X-Restli-Protocol-Version": "2.0.0",
+    }
+
+
 def sync_linkedin_accounts(db: Session, user_id: int) -> int:
+
     """
     Fetch LinkedIn profile (and potentially pages) and upsert into linkedin_accounts.
     Returns count of accounts synced.
@@ -28,6 +39,7 @@ def sync_linkedin_accounts(db: Session, user_id: int) -> int:
                 "https://api.linkedin.com/v2/userinfo",
                 headers={"Authorization": f"Bearer {access_token}"}
             )
+
             if not resp.is_success:
                 raise ValueError(f"LinkedIn sync failed: {resp.text}")
             
@@ -51,8 +63,51 @@ def sync_linkedin_accounts(db: Session, user_id: int) -> int:
                     account_type="person"
                 ))
             
+            # Discover approved organization roles without publishing. This endpoint
+            # may be unavailable until LinkedIn grants the organization permissions;
+            # retain the member account when that happens.
+            try:
+                acl_resp = client.get(
+                    "https://api.linkedin.com/rest/organizationAcls",
+                    headers=_linkedin_headers(access_token),
+                    params={
+                        "q": "roleAssignee",
+                        "role": "ADMINISTRATOR",
+                        "state": "APPROVED",
+                    },
+                )
+                acl_elements = acl_resp.json().get("elements", []) if acl_resp.is_success else []
+            except (httpx.HTTPError, ValueError):
+                acl_elements = []
+
+            synced = 1
+            for element in acl_elements:
+                organization_urn = element.get("organization") or element.get("organizationTarget")
+                if not organization_urn:
+                    continue
+                existing_org = db.query(LinkedInAccount).filter(
+                    LinkedInAccount.user_id == user_id,
+                    LinkedInAccount.linkedin_id == organization_urn,
+                ).first()
+                if existing_org:
+                    existing_org.name = organization_urn
+                    existing_org.account_type = "organization"
+                    existing_org.organization_role = element.get("role")
+                    existing_org.organization_role_state = element.get("state")
+                else:
+                    db.add(LinkedInAccount(
+                        user_id=user_id,
+                        linkedin_id=organization_urn,
+                        name=organization_urn,
+                        account_type="organization",
+                        organization_role=element.get("role"),
+                        organization_role_state=element.get("state"),
+                    ))
+                synced += 1
+
             db.commit()
-            return 1
+            return synced
+
     except Exception as e:
         raise ValueError(f"LinkedIn sync error: {str(e)}")
 
@@ -94,7 +149,17 @@ def publish_to_linkedin(
         db.add(publish_status)
         db.commit()
 
+        if account.account_type == "organization" and not (
+            account.organization_role_state == "APPROVED"
+            and account.organization_role in {"ADMINISTRATOR", "DIRECT_SPONSORED_CONTENT_POSTER", "CONTENT_ADMINISTRATOR"}
+        ):
+            publish_status.status = PublishStatusEnum.FAILED
+            publish_status.error_message = "PERMISSION_REQUIRED: LinkedIn organization role is not approved for publishing."
+            db.commit()
+            continue
+
         try:
+
             # LinkedIn Posts API (modern)
             # POST https://api.linkedin.com/rest/posts
             # Note: Requires 'LinkedIn-Version' header. 
@@ -102,7 +167,8 @@ def publish_to_linkedin(
             
             headers = {
                 "Authorization": f"Bearer {access_token}",
-                "LinkedIn-Version": "202312",
+                "LinkedIn-Version": settings.linkedin_api_version,
+
                 "Content-Type": "application/json",
                 "X-Restli-Protocol-Version": "2.0.0",
             }
@@ -130,8 +196,8 @@ def publish_to_linkedin(
                     raise ValueError(f"LinkedIn API error: {error_data}")
                 
                 # LinkedIn returns the URN of the created post in the 'x-linkedin-id' header
-                platform_post_id = resp.headers.get("x-linkedin-id")
-                
+                platform_post_id = resp.headers.get("x-restli-id") or resp.headers.get("x-linkedin-id")
+
             publish_status.platform_post_id = platform_post_id
             publish_status.status = PublishStatusEnum.POSTED
         except Exception as e:

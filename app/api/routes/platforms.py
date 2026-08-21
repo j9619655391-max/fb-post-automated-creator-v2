@@ -30,6 +30,8 @@ class LinkedInAccountResponse(BaseModel):
     linkedin_id: str
     name: str
     account_type: str
+    organization_role: Optional[str] = None
+    organization_role_state: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
 

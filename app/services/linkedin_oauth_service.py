@@ -14,7 +14,8 @@ from app.services.audit_service import AuditService
 
 
 # Scopes for posting on behalf of the user
-OAUTH_SCOPES = "w_member_social profile openid email"
+OAUTH_SCOPES = settings.linkedin_oauth_scopes
+
 LINKEDIN_OAUTH_AUTHORIZE = "https://www.linkedin.com/oauth/v2/authorization"
 LINKEDIN_OAUTH_ACCESS_TOKEN = "https://www.linkedin.com/oauth/v2/accessToken"
 

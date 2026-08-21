@@ -10,10 +10,13 @@ This module provides:
   - publish_to_instagram(content) - Instagram publishing via container creation & publish
 """
 from typing import Optional, List
+import time
 
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.core.meta_api_errors import TokenInvalidError
+
 from app.models.content import Content
 from app.models.meta_page import MetaPage
 from app.models.content_execution import ContentPublishStatus, PublishStatusEnum
@@ -149,26 +152,52 @@ def publish_to_instagram(
         raise ValueError("Page not found or not owned by user")
 
     from app.core.token_crypto import decrypt_token
-    page_token = decrypt_token(page.page_access_token_encrypted)
+    page_token = decrypt_token(page.access_token_encrypted)
 
     caption = f"{content.title}\n\n{content.body}"
 
     with httpx.Client(timeout=30.0) as client:
-        # Step 1 – Get Instagram Business Account ID
-        page_resp = client.get(
-            f"{META_GRAPH_BASE}/{page.page_id}",
-            params={"fields": "instagram_business_account", "access_token": page_token},
-        )
-        if not page_resp.is_success:
-            raise ValueError(f"Failed to fetch Instagram account for page: {page_resp.text}")
-
-        page_data = page_resp.json()
-        ig_account = page_data.get("instagram_business_account", {})
-        ig_id = ig_account.get("id")
+        # Step 1 – Use persisted linkage, refreshing it read-only if absent.
+        ig_id = page.instagram_business_account_id
+        if not ig_id:
+            page_resp = client.get(
+                f"{META_GRAPH_BASE}/{page.page_id}",
+                params={"fields": "instagram_business_account", "access_token": page_token},
+            )
+            if not page_resp.is_success:
+                raise ValueError(f"Failed to fetch Instagram account for page: {page_resp.text}")
+            page_data = page_resp.json()
+            ig_id = (page_data.get("instagram_business_account") or {}).get("id")
+            if ig_id:
+                page.instagram_business_account_id = ig_id
+                db.commit()
         if not ig_id:
             raise ValueError("No Instagram Business Account linked to this Facebook Page.")
 
-        # Step 2 – Create media container
+        # Step 2 – Check Meta's rolling 24-hour publishing quota before
+        # creating a container. This prevents avoidable containers when the
+        # provider quota is already exhausted.
+        limit_resp = client.get(
+            f"{META_GRAPH_BASE}/{ig_id}/content_publishing_limit",
+            params={
+                "fields": "quota_usage,config",
+                "since": int(time.time()) - 86400,
+                "access_token": page_token,
+            },
+        )
+        if not limit_resp.is_success:
+            raise ValueError(f"Instagram publishing rate-limit check failed: {limit_resp.text}")
+        limit_data = limit_resp.json().get("data") or []
+        if limit_data:
+            usage_data = limit_data[0] or {}
+            quota_usage = int(usage_data.get("quota_usage") or 0)
+            quota_total = int((usage_data.get("config") or {}).get("quota_total") or 0)
+            if quota_total and quota_usage >= quota_total:
+                raise ValueError(
+                    f"Instagram publishing rate limit reached ({quota_usage}/{quota_total} containers in 24 hours)"
+                )
+
+        # Step 3 – Create media container
         container_resp = client.post(
             f"{META_GRAPH_BASE}/{ig_id}/media",
             params={
@@ -184,11 +213,43 @@ def publish_to_instagram(
         if not container_id:
             raise ValueError("No container ID returned from Instagram API.")
 
-        # Step 3 – Publish the media container
+        # Step 4 – Poll container readiness before publishing. Meta documents
+        # FINISHED/PUBLISHED as publishable terminal states and recommends a
+        # bounded status check rather than immediately calling media_publish.
+        poll_attempts = max(1, settings.instagram_container_poll_attempts)
+        poll_interval = max(0.0, settings.instagram_container_poll_interval_seconds)
+        terminal_status = None
+        for attempt in range(poll_attempts):
+            status_resp = client.get(
+                f"{META_GRAPH_BASE}/{container_id}",
+                params={"fields": "status_code,status", "access_token": page_token},
+            )
+            if not status_resp.is_success:
+                raise ValueError(f"Instagram media container status check failed: {status_resp.text}")
+            status_data = status_resp.json()
+            status_code = str(status_data.get("status_code") or "").upper()
+            if status_code in {"FINISHED", "PUBLISHED"}:
+                terminal_status = status_code
+                break
+            if status_code in {"ERROR", "EXPIRED"}:
+                detail = status_data.get("status") or status_code
+                raise ValueError(f"Instagram media container is not publishable ({status_code}): {detail}")
+            if status_code != "IN_PROGRESS":
+                raise ValueError(f"Instagram media container returned unknown status: {status_code or 'EMPTY'}")
+            if attempt < poll_attempts - 1 and poll_interval:
+                time.sleep(poll_interval)
+
+        if terminal_status is None:
+            raise ValueError(
+                f"Instagram media container remained IN_PROGRESS after {poll_attempts} status checks"
+            )
+
+        # Step 5 – Publish the media container.
         publish_resp = client.post(
             f"{META_GRAPH_BASE}/{ig_id}/media_publish",
             params={"creation_id": container_id, "access_token": page_token},
         )
+
         if not publish_resp.is_success:
             raise ValueError(f"Instagram media publish failed: {publish_resp.text}")
 

@@ -14,8 +14,9 @@ from app.models.meta_page import MetaPage
 from app.services.audit_service import AuditService
 
 
-# Scopes for page listing and posting (MVP)
-OAUTH_SCOPES = "pages_show_list,pages_read_engagement,pages_manage_posts"
+# Scopes for Page listing/posting and Instagram professional-account publishing.
+OAUTH_SCOPES = settings.facebook_oauth_scopes
+
 META_OAUTH_AUTHORIZE = "https://www.facebook.com/v18.0/dialog/oauth"
 META_OAUTH_ACCESS_TOKEN = "https://graph.facebook.com/v18.0/oauth/access_token"
 META_LONG_LIVED_TOKEN = "https://graph.facebook.com/v18.0/oauth/access_token"

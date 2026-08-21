@@ -13,6 +13,8 @@ export interface LinkedInAccount {
     linkedin_id: string;
     name: string;
     account_type: string;
+    organization_role?: string | null;
+    organization_role_state?: string | null;
 }
 
 export function getPlatformsStatus(): Promise<PlatformStatus[]> {
@@ -42,6 +44,7 @@ export interface PlatformSandboxReadiness {
         connected: boolean;
         remote_check: string;
         publish_ready: boolean;
+        linked_accounts_count: number;
         reason: string | null;
         meta_dependency: string;
     };
