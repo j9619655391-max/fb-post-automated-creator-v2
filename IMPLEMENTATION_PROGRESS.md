@@ -97,3 +97,12 @@ AI draft generation now loads the organization profile and only active, approved
 A corrective Alembic migration removes the redundant profile organization index, and the local Compose file live-mounts application code, migrations, tests, and frontend output for Windows development. Validation completed with **31 backend tests passed**, Python compilation passed, frontend production build passed, PostgreSQL Alembic upgrade/check passed, and API/Docker health checks passed.
 
 Remaining production work is unchanged: configure real Meta/Facebook, Instagram, LinkedIn, and Gemini credentials; validate provider sandbox publishing and OAuth callbacks over HTTPS; add external observability and alerting; and only then evaluate a controlled autonomous campaign flag while retaining human approval safeguards.
+
+
+## OpenRouter free-model integration checkpoint
+
+The AI provider layer now supports Gemini and OpenRouter through one provider-neutral interface. OpenRouter uses its OpenAI-compatible `/api/v1/chat/completions` endpoint, supports `openrouter/free` and specific `:free` model slugs, normalizes prompt/completion/total token usage, and records provider-specific estimated cost using configurable rates. Free-model defaults are configured at zero cost, while model pricing remains operator-configurable.
+
+The local Windows deployment has been configured with the supplied credentials in the ignored server-side `.env` and is currently set to `AI_PROVIDER=openrouter` with `OPENROUTER_MODEL=openrouter/free`. A live provider probe returned HTTP 200 for the model catalog and completion endpoint, and a draft-only API smoke test generated an approval-required draft successfully. No public post was created or published.
+
+An explicit `AI_FALLBACK_ENABLED` setting controls optional Gemini fallback and defaults to `false` so free-model failures cannot unexpectedly incur paid-provider cost. A safe authenticated `GET /api/v1/generation/provider` endpoint and dashboard card expose only provider/model/readiness metadata; credentials are never returned to the frontend. Full validation now reports **36 backend tests passed**, Python compilation passed, frontend production build passed, Alembic drift check passed, and the Docker API/worker/beat stack is healthy.

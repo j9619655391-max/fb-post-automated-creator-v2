@@ -1,4 +1,3 @@
-"""AI theme generation using the official Google GenAI SDK. Advisory only."""
 import json
 import uuid
 from datetime import datetime, timezone
@@ -10,7 +9,15 @@ from app.core.config import settings
 from app.models.content_category import ContentCategory
 from app.models.content_generation import ContentGenerationJob, GenerationStatus
 from app.models.content_generation_usage import ContentGenerationUsage
-from app.services.genai_client import GenerationUsage, calculate_cost, close_client, extract_usage, get_client
+from app.services.genai_client import (
+    GenerationUsage,
+    active_provider_and_model,
+    calculate_cost,
+    close_client,
+    cost_rates,
+    extract_usage,
+    get_client,
+)
 
 
 def generate_themes(
@@ -21,8 +28,14 @@ def generate_themes(
     extra_instruction: Optional[str] = None,
     user_id: Optional[int] = None,
 ) -> List[str]:
-    """Generate concise advisory themes and account for provider usage when authenticated."""
-    if not settings.gemini_api_key:
+    """Generate concise advisory themes through the configured AI provider."""
+    try:
+        provider, model = active_provider_and_model()
+    except ValueError:
+        return []
+    if provider == "gemini" and not settings.gemini_api_key:
+        return []
+    if provider == "openrouter" and not settings.openrouter_api_key:
         return []
 
     category_label = "general"
@@ -48,8 +61,8 @@ Keep themes concise, engaging, and suitable for a short post."""
             category_id=category_id,
             category_name=category_label,
             extra_instruction=extra_instruction,
-            model=settings.gemini_model,
-            provider="gemini",
+            model=model,
+            provider=provider,
             status=GenerationStatus.GENERATING,
             idempotency_key=f"themes:{uuid.uuid4()}",
         )
@@ -61,9 +74,13 @@ Keep themes concise, engaging, and suitable for a short post."""
     usage = GenerationUsage()
     try:
         client = get_client()
-        response = client.models.generate_content(model=settings.gemini_model, contents=prompt)
+        response = client.models.generate_content(model=model, contents=prompt)
         usage = extract_usage(response)
-        themes = [line.strip() for line in (getattr(response, "text", "") or "").strip().split("\n") if line.strip()][:count]
+        themes = [
+            line.strip()
+            for line in (getattr(response, "text", "") or "").strip().split("\n")
+            if line.strip()
+        ][:count]
         if job:
             job.status = GenerationStatus.SUCCEEDED
             job.completed_at = datetime.now(timezone.utc)
@@ -73,16 +90,16 @@ Keep themes concise, engaging, and suitable for a short post."""
                     generation_job_id=job.id,
                     organization_id=job.organization_id,
                     requested_by_id=job.requested_by_id,
-                    provider="gemini",
-                    model=settings.gemini_model,
+                    provider=provider,
+                    model=model,
                     prompt_token_count=usage.prompt_tokens,
                     candidates_token_count=usage.candidates_tokens,
                     thoughts_token_count=usage.thoughts_tokens,
                     cached_content_token_count=usage.cached_content_tokens,
                     total_token_count=usage.total_tokens,
-                    input_cost_per_million_usd=settings.gemini_input_cost_per_million_usd,
-                    output_cost_per_million_usd=settings.gemini_output_cost_per_million_usd,
-                    cost_usd=calculate_cost(usage),
+                    input_cost_per_million_usd=cost_rates(provider)[0],
+                    output_cost_per_million_usd=cost_rates(provider)[1],
+                    cost_usd=calculate_cost(usage, provider=provider),
                 )
             )
             db.commit()
@@ -104,4 +121,8 @@ Keep themes concise, engaging, and suitable for a short post."""
 
 
 def is_theme_generation_available() -> bool:
-    return bool(settings.gemini_api_key)
+    try:
+        provider, _model = active_provider_and_model()
+    except ValueError:
+        return False
+    return bool(settings.gemini_api_key if provider == "gemini" else settings.openrouter_api_key)

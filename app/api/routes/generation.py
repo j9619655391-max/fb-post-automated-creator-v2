@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
+from app.services.genai_client import active_provider_and_model
+
 from app.api.dependencies import get_current_user
+
 from app.core.database import get_db
 from app.models.user import User
 from app.schemas.content import ContentResponse
@@ -14,6 +18,32 @@ from app.services.content_generation_service import (
 )
 
 router = APIRouter()
+
+
+@router.get("/provider")
+def get_ai_provider_status(current_user: User = Depends(get_current_user)):
+    """Return safe AI provider readiness metadata without exposing API keys."""
+    try:
+        provider, model = active_provider_and_model()
+    except ValueError as exc:
+        return {
+            "provider": "unknown",
+            "model": None,
+            "configured": False,
+            "free_model": False,
+            "fallback_enabled": settings.ai_fallback_enabled,
+            "error": str(exc),
+        }
+    configured = bool(
+        settings.gemini_api_key if provider == "gemini" else settings.openrouter_api_key
+    )
+    return {
+        "provider": provider,
+        "model": model,
+        "configured": configured,
+        "free_model": provider == "openrouter" and (model == "openrouter/free" or model.endswith(":free")),
+        "fallback_enabled": settings.ai_fallback_enabled,
+    }
 
 
 @router.post("/draft", response_model=ContentResponse, status_code=status.HTTP_201_CREATED)

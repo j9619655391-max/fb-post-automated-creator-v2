@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { listContent, type Content } from '../api/content';
 import { listScheduledPosts, cancelScheduledPost, retryScheduledPost, type ScheduledPost } from '../api/scheduledPosts';
+import { getAIProviderStatus, type AIProviderStatus } from '../api/generation';
 
 function scheduleStatusLabel(status: string): string {
   switch (status) {
@@ -37,16 +38,21 @@ export default function Dashboard() {
   const [content, setContent] = useState<Content[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
+  const [providerStatus, setProviderStatus] = useState<AIProviderStatus | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
     listContent({ limit: 50 })
       .then(setContent)
       .catch(() => setContent([]));
-    listScheduledPosts({ limit: 20 })
+        listScheduledPosts({ limit: 20 })
       .then(setScheduled)
       .catch(() => setScheduled([]))
       .finally(() => setLoading(false));
+    getAIProviderStatus()
+      .then(setProviderStatus)
+      .catch(() => setProviderStatus(null));
+
   }, [isAuthenticated]);
 
   const byStatus = content.reduce<Record<string, number>>((acc, c) => {
@@ -88,7 +94,8 @@ export default function Dashboard() {
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-6">Dashboard</h1>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-8">
+
         <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <p className="text-slate-500 text-sm font-medium">Drafts</p>
           <p className="text-2xl font-bold text-slate-900 mt-1">{draft}</p>
@@ -97,10 +104,25 @@ export default function Dashboard() {
           <p className="text-slate-500 text-sm font-medium">Pending approval</p>
           <p className="text-2xl font-bold text-amber-600 mt-1">{pending}</p>
         </div>
-        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+                <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
           <p className="text-slate-500 text-sm font-medium">Approved</p>
           <p className="text-2xl font-bold text-emerald-600 mt-1">{approved}</p>
         </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
+          <p className="text-slate-500 text-sm font-medium">AI provider</p>
+          <p className="text-lg font-bold text-indigo-700 mt-1">
+            {providerStatus?.provider ?? 'Checking...'}
+          </p>
+          <p className="text-xs text-slate-500 mt-1 truncate" title={providerStatus?.model ?? undefined}>
+            {providerStatus?.model ?? 'Provider status unavailable'}
+          </p>
+          {providerStatus && (
+            <p className={`text-xs mt-2 ${providerStatus.configured ? 'text-emerald-600' : 'text-red-600'}`}>
+              {providerStatus.configured ? (providerStatus.free_model ? 'Free model configured' : 'Configured') : 'Not configured'}
+            </p>
+          )}
+        </div>
+
       </div>
 
       {scheduled.length > 0 && (

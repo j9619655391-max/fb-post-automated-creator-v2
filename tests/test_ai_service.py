@@ -1,4 +1,5 @@
 from app.services import ai_service
+from app.core.config import settings
 from app.services.ai_service import AIService
 
 
@@ -17,7 +18,9 @@ class FakeResponse:
 
 class FakeModels:
     def generate_content(self, model: str, contents: str):
-        assert model == "gemini-2.5-flash"
+        expected_model = settings.gemini_model if settings.ai_provider == "gemini" else settings.openrouter_model
+        assert model == expected_model
+
         assert "new product launch" in contents
         return FakeResponse()
 

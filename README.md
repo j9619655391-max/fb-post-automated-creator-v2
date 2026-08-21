@@ -240,3 +240,23 @@ See [docs/README.md](docs/README.md) for the full index. Core docs:
 
 MIT
 
+
+
+## OpenRouter free-model support
+
+The AI provider layer supports both Gemini and OpenRouter. Gemini remains the default in `.env.example`; to use OpenRouter’s free router locally, set the server-side environment values below and recreate the API container:
+
+```dotenv
+AI_PROVIDER=openrouter
+OPENROUTER_API_KEY=your-server-side-key
+OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
+OPENROUTER_MODEL=openrouter/free
+OPENROUTER_TIMEOUT_SECONDS=60
+OPENROUTER_INPUT_COST_PER_MILLION_USD=0.0
+OPENROUTER_OUTPUT_COST_PER_MILLION_USD=0.0
+AI_FALLBACK_ENABLED=false
+```
+
+`openrouter/free` selects an available free model dynamically. A specific free model can be selected by setting `OPENROUTER_MODEL` to a currently available model slug ending in `:free`; availability changes over time, so operators should verify the live OpenRouter model catalog before pinning one. The provider adapter records prompt, completion, and total tokens in the existing usage table and uses the configured rates for cost accounting. Free-model defaults are recorded at zero cost, but operators should review provider pricing before changing model configuration.
+
+An optional Gemini fallback exists but is disabled by default because it may incur cost. Set `AI_FALLBACK_ENABLED=true` only when that behavior is explicitly desired. Provider keys remain server-side, are never sent to the frontend, and are not included in Git commits. AI-generated content remains a draft until it passes the existing moderation and human approval workflow.

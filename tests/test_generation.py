@@ -1,4 +1,5 @@
 from app.models.content_generation_usage import ContentGenerationUsage
+from app.core.config import settings
 from app.services import content_generation_service
 
 
@@ -24,7 +25,9 @@ class FakeGenerationResponse:
 
 class FakeModels:
     def generate_content(self, model: str, contents: str):
-        assert model == "gemini-2.5-flash"
+        expected_model = settings.gemini_model if settings.ai_provider == "gemini" else settings.openrouter_model
+        assert model == expected_model
+
         assert "morning" in contents
         return FakeGenerationResponse()
 
@@ -67,7 +70,11 @@ def test_generate_complete_draft_persists_provenance_and_usage(client, api, auth
         assert usage.prompt_token_count == 100
         assert usage.candidates_token_count == 50
         assert usage.total_token_count == 150
-        assert usage.cost_usd > 0
+        if settings.ai_provider == "openrouter":
+            assert usage.cost_usd == 0
+        else:
+            assert usage.cost_usd > 0
+
     finally:
         db.close()
 

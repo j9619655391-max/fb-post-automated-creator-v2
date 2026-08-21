@@ -1,6 +1,7 @@
-import { apiPost } from './client';
+import { apiGet, apiPost } from './client';
 
 export interface GeneratedDraft {
+
   id: number;
   title: string;
   body: string;
@@ -21,4 +22,18 @@ export interface GenerateDraftRequest {
 
 export function generateDraft(data: GenerateDraftRequest): Promise<GeneratedDraft> {
   return apiPost<GeneratedDraft>('generation/draft', data);
+}
+
+
+export interface AIProviderStatus {
+  provider: string;
+  model: string | null;
+  configured: boolean;
+  free_model: boolean;
+  fallback_enabled: boolean;
+  error?: string;
+}
+
+export function getAIProviderStatus(): Promise<AIProviderStatus> {
+  return apiGet<AIProviderStatus>('generation/provider');
 }

@@ -153,3 +153,26 @@ Generation context is restricted to the active approved source set and the organ
 ## Remaining production boundary
 
 The feature is ready for local controlled use, but automatic source refresh and actual publishing still require configured provider credentials, approved HTTPS callbacks, authorized business accounts, and operational monitoring. External provider sandbox E2E tests, alerting/metrics, and any future autonomous campaign mode remain gated behind the existing human-approval and credential requirements.
+
+
+## OpenRouter free-model hardening checkpoint
+
+OpenRouter is integrated as an optional server-side AI provider through the existing generation client abstraction. The adapter uses the documented HTTPS endpoint and Bearer authentication, handles non-JSON/provider/network errors without exposing API keys, captures the resolved model returned by the provider, and normalizes token usage into the existing billing table. The default `openrouter/free` router selects from currently available free models; specific free variants can be pinned with a `:free` model slug.
+
+OpenRouter fallback to Gemini is explicitly disabled by default because it may create paid-provider cost. Operators must set `AI_FALLBACK_ENABLED=true` deliberately. The dashboard provider card and authenticated provider-status endpoint expose provider, model, configuration readiness, free-model status, and fallback state only; no secret is serialized to the browser or audit response.
+
+| Check | Result |
+|---|---:|
+| OpenRouter model catalog probe | Passed; HTTP 200 |
+| OpenRouter free completion probe | Passed; HTTP 200 and zero provider cost reported |
+| Draft-only OpenRouter API smoke test | Passed; approval-required draft created |
+| Backend suite | **36 passed** |
+| Provider adapter tests | Passed |
+| Python compilation | Passed |
+| Frontend production build | Passed |
+| PostgreSQL Alembic drift check | Passed |
+| Docker API/Worker/Beat deployment | Healthy |
+
+## Remaining provider boundary
+
+OpenRouter free-model availability and rate limits can change, and free models may have higher latency or weaker structured-output reliability than paid models. Production operation should pin and periodically verify an appropriate `:free` model when deterministic behavior is required, monitor provider failures, and rotate the credentials supplied during setup because they were shared in chat. Meta/Facebook, Instagram, and LinkedIn publishing remains governed by the existing provider credentials, OAuth callbacks, moderation, and human approval controls.

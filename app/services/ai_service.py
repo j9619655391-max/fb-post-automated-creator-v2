@@ -5,14 +5,21 @@ from typing import Dict, Optional
 
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.models.content_generation import ContentGenerationJob, GenerationStatus
 from app.models.content_generation_usage import ContentGenerationUsage
-from app.services.genai_client import GenerationUsage, calculate_cost, close_client, extract_usage, get_client
+from app.services.genai_client import (
+    GenerationUsage,
+    active_provider_and_model,
+    calculate_cost,
+    close_client,
+    cost_rates,
+    extract_usage,
+    get_client,
+)
 
 
 class AIService:
-    """Service for optimization and other short-lived Gemini operations."""
+    """Service for optimization and other short-lived AI operations."""
 
     def __init__(
         self,
@@ -23,6 +30,7 @@ class AIService:
         self.db = db
         self.user_id = user_id
         self.organization_id = organization_id
+        self.provider, self.model = active_provider_and_model()
         self.client = get_client()
 
     def _create_usage_job(self) -> Optional[ContentGenerationJob]:
@@ -32,8 +40,8 @@ class AIService:
             organization_id=self.organization_id,
             requested_by_id=self.user_id,
             category_name="optimization",
-            model=settings.gemini_model,
-            provider="gemini",
+            model=self.model,
+            provider=self.provider,
             status=GenerationStatus.GENERATING,
             idempotency_key=f"optimization:{uuid.uuid4()}",
         )
@@ -45,21 +53,22 @@ class AIService:
     def _save_usage(self, job: Optional[ContentGenerationJob], usage: GenerationUsage) -> None:
         if not job or not self.db:
             return
+        input_rate, output_rate = cost_rates(job.provider)
         self.db.add(
             ContentGenerationUsage(
                 generation_job_id=job.id,
                 organization_id=job.organization_id,
                 requested_by_id=job.requested_by_id,
-                provider=job.provider or "gemini",
-                model=job.model or settings.gemini_model,
+                provider=job.provider or self.provider,
+                model=job.model or self.model,
                 prompt_token_count=usage.prompt_tokens,
                 candidates_token_count=usage.candidates_tokens,
                 thoughts_token_count=usage.thoughts_tokens,
                 cached_content_token_count=usage.cached_content_tokens,
                 total_token_count=usage.total_tokens,
-                input_cost_per_million_usd=settings.gemini_input_cost_per_million_usd,
-                output_cost_per_million_usd=settings.gemini_output_cost_per_million_usd,
-                cost_usd=calculate_cost(usage),
+                input_cost_per_million_usd=input_rate,
+                output_cost_per_million_usd=output_rate,
+                cost_usd=calculate_cost(usage, provider=job.provider),
             )
         )
 
@@ -79,7 +88,7 @@ Do not include markdown formatting like ```json or any other text outside the JS
         usage = GenerationUsage()
         try:
             response = self.client.models.generate_content(
-                model=settings.gemini_model,
+                model=job.model if job else self.model,
                 contents=prompt,
             )
             usage = extract_usage(response)
