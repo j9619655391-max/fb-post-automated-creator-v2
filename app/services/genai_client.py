@@ -20,6 +20,21 @@ class GenerationUsage:
 class OpenRouterProviderError(ValueError):
     """Raised when OpenRouter rejects or cannot complete a generation request."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        status_code: int | None = None,
+        retry_after_seconds: int | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.retry_after_seconds = retry_after_seconds
+
+    @property
+    def retryable(self) -> bool:
+        return self.status_code is None or self.status_code == 408 or self.status_code == 429 or self.status_code >= 500
+
 
 @dataclass
 class OpenRouterResponse:
@@ -59,14 +74,24 @@ class _OpenRouterModels:
             data = response.json()
         except ValueError as exc:
             raise OpenRouterProviderError(
-                f"OpenRouter returned an invalid response ({response.status_code})"
+                f"OpenRouter returned an invalid response ({response.status_code})",
+                status_code=response.status_code,
             ) from exc
 
         if response.status_code >= 400:
             error = data.get("error") if isinstance(data, dict) else None
             message = error.get("message") if isinstance(error, dict) else None
+            retry_after = None
+            retry_after_header = getattr(response, "headers", {}).get("Retry-After")
+            if retry_after_header:
+                try:
+                    retry_after = max(1, int(float(retry_after_header)))
+                except (TypeError, ValueError):
+                    retry_after = None
             raise OpenRouterProviderError(
-                f"OpenRouter request failed ({response.status_code}): {message or 'provider error'}"
+                f"OpenRouter request failed ({response.status_code}): {message or 'provider error'}",
+                status_code=response.status_code,
+                retry_after_seconds=retry_after,
             )
 
         choices = data.get("choices") if isinstance(data, dict) else None

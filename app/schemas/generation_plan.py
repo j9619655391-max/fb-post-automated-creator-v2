@@ -30,7 +30,13 @@ class GenerationPlanResponse(BaseModel):
     next_run_at: datetime
     last_run_at: Optional[datetime]
     active: bool
+    last_provider: Optional[str]
+    last_error_code: Optional[str]
+    last_error_message: Optional[str]
+    failure_count: int
+    last_retry_at: Optional[datetime]
     created_at: datetime
+
     updated_at: Optional[datetime]
 
     model_config = {"from_attributes": True}

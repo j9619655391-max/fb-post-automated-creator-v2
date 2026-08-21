@@ -1,4 +1,5 @@
 from datetime import datetime, timedelta, timezone
+import logging
 from typing import List, Optional
 
 from sqlalchemy.orm import Session
@@ -9,8 +10,15 @@ from app.models.generation_plan import (
     GenerationPlanStatus,
     GenerationRecurrence,
 )
-from app.services.content_generation_service import generate_and_persist_draft
+from app.services.content_generation_service import GenerationProviderError, generate_and_persist_draft
+
 from app.services.content_service import ContentService
+
+
+logger = logging.getLogger(__name__)
+
+
+
 
 
 def _ensure_access(db: Session, plan: ContentGenerationPlan, user_id: int) -> None:
@@ -92,7 +100,12 @@ def _advance_plan(plan: ContentGenerationPlan, run_at: datetime) -> None:
     plan.last_run_at = run_at
     interval = timedelta(days=7 if plan.recurrence == GenerationRecurrence.WEEKLY else 1)
     next_run = plan.next_run_at
+    if not next_run.tzinfo:
+        next_run = next_run.replace(tzinfo=timezone.utc)
+    if not run_at.tzinfo:
+        run_at = run_at.replace(tzinfo=timezone.utc)
     while next_run <= run_at:
+
         next_run += interval
     plan.next_run_at = next_run
 
@@ -112,14 +125,51 @@ def run_plan(db: Session, plan: ContentGenerationPlan) -> ContentGenerationPlan:
         organization_id=plan.organization_id,
         idempotency_key=idempotency_key,
     )
+    plan.failure_count = 0
+    plan.last_provider = None
+    plan.last_error_code = None
+    plan.last_error_message = None
+    plan.last_retry_at = None
     _advance_plan(plan, run_at)
     db.commit()
+
     db.refresh(plan)
     return plan
 
 
+def _reschedule_failed_plan(db: Session, plan_id: int, now: datetime, exc: Exception) -> bool:
+    """Move failed plans forward so provider failures do not cause a hot loop."""
+    plan = db.query(ContentGenerationPlan).filter(ContentGenerationPlan.id == plan_id).first()
+    if not plan:
+        return False
+    plan.failure_count = (plan.failure_count or 0) + 1
+    plan.last_provider = getattr(exc, "provider", None)
+    plan.last_error_code = "PROVIDER_RETRY" if isinstance(exc, GenerationProviderError) and exc.retryable else "GENERATION_FAILED"
+    plan.last_error_message = str(exc)[:1000]
+    plan.last_retry_at = now
+    if isinstance(exc, GenerationProviderError) and exc.retryable:
+        delay = min(3600, max(300, exc.retry_after_seconds or 900))
+        plan.next_run_at = now + timedelta(seconds=delay)
+        logger.warning(
+            "generation_plan.provider_retry",
+            extra={
+                "plan_id": plan.id,
+                "provider": exc.provider or "unknown",
+                "retry_delay_seconds": delay,
+            },
+        )
+        return True
+    _advance_plan(plan, now)
+    logger.error(
+        "generation_plan.failed_until_next_occurrence",
+        extra={"plan_id": plan.id, "error_type": type(exc).__name__},
+    )
+    return False
+
+
 def run_due_plans(db: Session, now: Optional[datetime] = None) -> dict:
     now = now or datetime.now(timezone.utc)
+
     due = (
         db.query(ContentGenerationPlan)
         .filter(
@@ -132,11 +182,20 @@ def run_due_plans(db: Session, now: Optional[datetime] = None) -> dict:
     )
     generated = 0
     failed = 0
+    retry_scheduled = 0
     for plan in due:
         try:
             run_plan(db, plan)
             generated += 1
-        except Exception:
+        except Exception as exc:
             db.rollback()
+            if _reschedule_failed_plan(db, plan.id, now, exc):
+                retry_scheduled += 1
             failed += 1
-    return {"generated": generated, "failed": failed, "due": len(due)}
+            db.commit()
+    return {
+        "generated": generated,
+        "failed": failed,
+        "retry_scheduled": retry_scheduled,
+        "due": len(due),
+    }

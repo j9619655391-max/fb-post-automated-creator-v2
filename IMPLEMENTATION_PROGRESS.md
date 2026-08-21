@@ -106,3 +106,10 @@ The AI provider layer now supports Gemini and OpenRouter through one provider-ne
 The local Windows deployment has been configured with the supplied credentials in the ignored server-side `.env` and is currently set to `AI_PROVIDER=openrouter` with `OPENROUTER_MODEL=openrouter/free`. A live provider probe returned HTTP 200 for the model catalog and completion endpoint, and a draft-only API smoke test generated an approval-required draft successfully. No public post was created or published.
 
 An explicit `AI_FALLBACK_ENABLED` setting controls optional Gemini fallback and defaults to `false` so free-model failures cannot unexpectedly incur paid-provider cost. A safe authenticated `GET /api/v1/generation/provider` endpoint and dashboard card expose only provider/model/readiness metadata; credentials are never returned to the frontend. Full validation now reports **36 backend tests passed**, Python compilation passed, frontend production build passed, Alembic drift check passed, and the Docker API/worker/beat stack is healthy.
+
+
+## Production-readiness checkpoint: background OpenRouter generation
+
+Recurring generation plans were validated through the Celery task path with the active OpenRouter free router. A due plan generated one approval-required draft successfully, and no social post was published. Provider errors now preserve retryability and `Retry-After` metadata. Retryable OpenRouter failures are rescheduled with bounded backoff instead of remaining due every five-minute Beat cycle; non-retryable generation failures advance to the next recurrence.
+
+Generation plans now persist `last_provider`, `last_error_code`, `last_error_message`, `failure_count`, and `last_retry_at`, and the API response exposes these fields for operator visibility. Migration `e5f6a7b8c9d0` was applied successfully. Final local validation passed: **37 backend tests**, Python compilation, frontend production build, Alembic drift check, API HTTP 200 smoke check, and healthy PostgreSQL/Redis/API/Celery/Celery Beat services.

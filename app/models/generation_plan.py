@@ -40,7 +40,13 @@ class ContentGenerationPlan(Base):
     next_run_at = Column(DateTime(timezone=True), nullable=False, index=True)
     last_run_at = Column(DateTime(timezone=True), nullable=True)
     active = Column(Boolean, nullable=False, default=True)
+    last_provider = Column(String(100), nullable=True)
+    last_error_code = Column(String(100), nullable=True)
+    last_error_message = Column(Text, nullable=True)
+    failure_count = Column(Integer, nullable=False, default=0)
+    last_retry_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
+
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     organization = relationship("Organization")

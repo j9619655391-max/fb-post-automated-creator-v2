@@ -176,3 +176,24 @@ OpenRouter fallback to Gemini is explicitly disabled by default because it may c
 ## Remaining provider boundary
 
 OpenRouter free-model availability and rate limits can change, and free models may have higher latency or weaker structured-output reliability than paid models. Production operation should pin and periodically verify an appropriate `:free` model when deterministic behavior is required, monitor provider failures, and rotate the credentials supplied during setup because they were shared in chat. Meta/Facebook, Instagram, and LinkedIn publishing remains governed by the existing provider credentials, OAuth callbacks, moderation, and human approval controls.
+
+
+## Production-readiness checkpoint: AI provider resilience
+
+OpenRouter provider failures now carry sanitized HTTP status, retryability, and integer `Retry-After` metadata. The generation service maps these errors to `GenerationProviderError` without leaking credentials. `run_due_plans()` applies a bounded five-minute-to-one-hour retry window for retryable provider failures and advances non-retryable failures to the next daily/weekly occurrence, preventing repeated hot-loop execution.
+
+Recurring generation plans persist the last provider, error code/message, failure count, and retry timestamp. Migration `e5f6a7b8c9d0` is applied and `alembic check` reports no drift. The background OpenRouter smoke test generated an approval-required draft through the real Celery task path; the publishing executor was not invoked.
+
+| Validation | Result |
+|---|---:|
+| Complete backend suite | **37 passed** |
+| Generation-plan/OpenRouter focused suite | **7 passed** |
+| Python compileall | Passed |
+| Frontend production build | Passed |
+| Alembic upgrade and drift check | Passed |
+| API root smoke check | HTTP 200 |
+| PostgreSQL and Redis health | Healthy |
+| API, Celery Worker, Celery Beat | Running |
+| Real social publishing during validation | Not attempted |
+
+Credential rotation remains a required operator action because the original keys were shared in chat. Replace both provider keys in the local ignored `.env`, recreate API/Worker/Beat, and rerun the provider smoke test after rotation.
