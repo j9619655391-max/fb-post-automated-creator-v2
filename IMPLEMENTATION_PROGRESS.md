@@ -122,3 +122,10 @@ The provider readiness diagnostic now follows the active AI provider and reports
 Added an authenticated `GET /api/v1/generation/health` endpoint and dashboard alert display for recent provider failures and generation-plan retries. Added the periodic `app.ai_provider_health_task` to Celery Beat at 15-minute intervals; it performs local database inspection only and logs sanitized alert metadata. The worker was reloaded and confirmed to register the health task. The full backend suite now passes with **39 tests**, along with Python compilation, frontend build, Alembic drift validation, API HTTP 200, and healthy Docker services.
 
 Official sandbox prerequisites and links are recorded in `docs/PROVIDER_SANDBOX_READINESS_FINDINGS.md`. No external social publishing was attempted during this checkpoint.
+
+
+## Production-readiness checkpoint: provider sandbox dry-run validation
+
+Added an authenticated `GET /api/v1/platforms/sandbox-readiness` endpoint and Platforms UI card for non-publishing provider validation. When credentials are absent, it reports configuration gaps without making network calls. When an account is connected, it performs only safe read-only identity checks: Meta `/me/accounts` and LinkedIn `/v2/userinfo`. Instagram is explicitly reported as blocked until professional-account linkage and an Instagram account identifier are persisted; no publish endpoint is called.
+
+The local route smoke test returned the expected unauthenticated `401`. The complete backend suite now passes with **41 tests**, Python compilation passed, frontend production build passed, Alembic reports no drift, and the local Docker stack remains operational. No Facebook, Instagram, or LinkedIn post was created.

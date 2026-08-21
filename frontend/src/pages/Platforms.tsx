@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { apiPost } from '../api/client';
-import type { PlatformStatus } from '../api/platforms';
-import { getPlatformsStatus, syncLinkedInAccounts } from '../api/platforms';
+import type { PlatformSandboxReadiness, PlatformStatus } from '../api/platforms';
+import { getPlatformSandboxReadiness, getPlatformsStatus, syncLinkedInAccounts } from '../api/platforms';
 
 export default function Platforms() {
     const [platforms, setPlatforms] = useState<PlatformStatus[]>([]);
@@ -9,11 +9,17 @@ export default function Platforms() {
     const [error, setError] = useState<string | null>(null);
     const [syncing, setSyncing] = useState(false);
     const [connecting, setConnecting] = useState(false);
+    const [readiness, setReadiness] = useState<PlatformSandboxReadiness | null>(null);
 
     const fetchStatus = async () => {
         try {
-            const data = await getPlatformsStatus();
+            const [data, sandboxReadiness] = await Promise.all([
+                getPlatformsStatus(),
+                getPlatformSandboxReadiness(),
+            ]);
             setPlatforms(data);
+            setReadiness(sandboxReadiness);
+
         } catch (err: any) {
             setError(err.message || 'Failed to fetch platform status');
         } finally {
@@ -74,6 +80,7 @@ export default function Platforms() {
             )}
 
             <div className="grid gap-6 md:grid-cols-2">
+
                 {/* Facebook Section */}
                 <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
                     <div className="flex items-center justify-between mb-4">
@@ -177,6 +184,35 @@ export default function Platforms() {
                     </div>
                 </div>
             </div>
+
+            {readiness && (
+                <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
+                    <div className="flex items-center justify-between mb-4">
+                        <div>
+                            <h2 className="text-xl font-semibold">Sandbox readiness</h2>
+                            <p className="text-sm text-slate-500 mt-1">Read-only identity checks only; publishing was not attempted.</p>
+                        </div>
+                        <span className="text-xs text-slate-500">{readiness.publishing_attempted ? 'Publishing attempted' : 'No publishing attempted'}</span>
+                    </div>
+                    <div className="grid gap-3 md:grid-cols-3">
+                        {(['facebook', 'instagram', 'linkedin'] as const).map((platform) => {
+                            const item = readiness[platform];
+                            return (
+                                <div key={platform} className="rounded-lg border border-slate-200 p-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-medium capitalize">{platform}</h3>
+                                        <span className={`text-xs font-medium ${item.publish_ready ? 'text-emerald-600' : 'text-amber-600'}`}>
+                                            {item.publish_ready ? 'Ready' : 'Blocked'}
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-slate-500 mt-2">Remote check: {item.remote_check}</p>
+                                    {item.reason && <p className="text-xs text-slate-600 mt-2">{item.reason}</p>}
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

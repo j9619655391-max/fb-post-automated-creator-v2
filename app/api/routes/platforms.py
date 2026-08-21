@@ -13,6 +13,7 @@ from app.models.meta_page import MetaPage
 from app.models.linkedin_account import LinkedInAccount
 from app.models.meta_oauth import MetaUserToken
 from app.models.linkedin_oauth import LinkedInUserToken
+from app.services.platform_sandbox_readiness_service import collect_platform_sandbox_readiness
 
 router = APIRouter()
 
@@ -57,7 +58,17 @@ def get_platforms_status(
     ]
 
 
+@router.get("/sandbox-readiness")
+def get_sandbox_readiness(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Validate provider configuration and connected identities without publishing."""
+    return collect_platform_sandbox_readiness(db, current_user.id)
+
+
 @router.get("/linkedin/accounts", response_model=List[LinkedInAccountResponse])
+
 def list_linkedin_accounts(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

@@ -208,3 +208,10 @@ A 15-minute Celery health task performs the same local-only inspection and logs 
 The current sandbox audit confirms that Meta and LinkedIn credentials, secure callbacks, token encryption, and a non-default production secret are still required before live publishing tests. Meta Pages publishing requires the appropriate Page permissions and tasks; Instagram requires a professional account, connected authorization, publicly accessible media, and application-side rate-limit enforcement; LinkedIn organization publishing requires the appropriate organization permission and member role. These findings are documented with official references in `docs/PROVIDER_SANDBOX_READINESS_FINDINGS.md`.
 
 Validation: **39 backend tests passed**, Python compilation passed, frontend build passed, Alembic reported no drift, API returned HTTP 200, PostgreSQL and Redis were healthy, and no public social post was created.
+
+
+## Production-readiness checkpoint: sandbox validation controls
+
+The platform now exposes a read-only sandbox-readiness check for Facebook, Instagram, and LinkedIn. It performs no publishing, does not return access tokens, and sanitizes provider errors into configuration, permission, rate-limit, or availability messages. Meta validation uses only account/page discovery; LinkedIn validation uses only member identity; Instagram remains blocked until professional-account linkage is modeled and verified.
+
+The authenticated live route returned `401` without credentials, confirming the route is protected. The full regression suite passed with **41 tests**. Python compilation, frontend build, Alembic drift validation, and Docker runtime checks passed. No external social publishing was attempted.
