@@ -23,6 +23,7 @@ from app.models.linkedin_account import LinkedInAccount
 from app.services.audit_service import AuditService
 from app.services.publish_errors import classify_publish_failure
 from app.services.scheduled_execution_service import ScheduledExecutionError, execute_scheduled_post
+from app.services.ai_provider_health_service import collect_ai_provider_health
 
 logger = logging.getLogger(__name__)
 
@@ -317,7 +318,29 @@ def token_guard_task():
     finally:
         db.close()
 
+@celery_app.task(name="app.ai_provider_health_task")
+def ai_provider_health_task():
+    """Log safe provider health alerts; this task performs no provider API calls."""
+    db = SessionLocal()
+    try:
+        result = collect_ai_provider_health(db)
+        if result["alert"]:
+            logger.warning(
+                "ai_provider.alert",
+                extra={
+                    "provider": result["provider"],
+                    "failed_jobs": result["failed_jobs"],
+                    "retrying_plans": result["retrying_plans"],
+                    "alert_reason": result["alert_reason"],
+                },
+            )
+        return result
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.run_due_generation_plans_task")
+
 def run_due_generation_plans_task():
     """Create due AI drafts from active plans; publishing still requires approval."""
     from app.services.generation_plan_service import run_due_plans
@@ -339,4 +362,9 @@ celery_app.conf.beat_schedule = {
         "task": "app.token_guard_task",
         "schedule": 86400.0, # 24 hours
     },
+    "check-ai-provider-health": {
+        "task": "app.ai_provider_health_task",
+        "schedule": 900.0, # 15 minutes
+    },
+
 }

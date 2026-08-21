@@ -113,3 +113,12 @@ An explicit `AI_FALLBACK_ENABLED` setting controls optional Gemini fallback and 
 Recurring generation plans were validated through the Celery task path with the active OpenRouter free router. A due plan generated one approval-required draft successfully, and no social post was published. Provider errors now preserve retryability and `Retry-After` metadata. Retryable OpenRouter failures are rescheduled with bounded backoff instead of remaining due every five-minute Beat cycle; non-retryable generation failures advance to the next recurrence.
 
 Generation plans now persist `last_provider`, `last_error_code`, `last_error_message`, `failure_count`, and `last_retry_at`, and the API response exposes these fields for operator visibility. Migration `e5f6a7b8c9d0` was applied successfully. Final local validation passed: **37 backend tests**, Python compilation, frontend production build, Alembic drift check, API HTTP 200 smoke check, and healthy PostgreSQL/Redis/API/Celery/Celery Beat services.
+
+
+## Production-readiness checkpoint: provider health and sandbox readiness
+
+The provider readiness diagnostic now follows the active AI provider and reports Gemini/OpenRouter availability separately without printing secrets or making network calls. The current local audit reports the active OpenRouter provider configured, database and Celery configured, and debug mode disabled. Meta app credentials/callback, LinkedIn credentials/callback, token encryption, and non-default production `SECRET_KEY` remain intentionally unresolved until operator credentials and deployment values are supplied.
+
+Added an authenticated `GET /api/v1/generation/health` endpoint and dashboard alert display for recent provider failures and generation-plan retries. Added the periodic `app.ai_provider_health_task` to Celery Beat at 15-minute intervals; it performs local database inspection only and logs sanitized alert metadata. The worker was reloaded and confirmed to register the health task. The full backend suite now passes with **39 tests**, along with Python compilation, frontend build, Alembic drift validation, API HTTP 200, and healthy Docker services.
+
+Official sandbox prerequisites and links are recorded in `docs/PROVIDER_SANDBOX_READINESS_FINDINGS.md`. No external social publishing was attempted during this checkpoint.

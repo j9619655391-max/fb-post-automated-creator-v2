@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.services.ai_provider_health_service import collect_ai_provider_health
 from app.services.genai_client import active_provider_and_model
 
 from app.api.dependencies import get_current_user
@@ -18,6 +19,15 @@ from app.services.content_generation_service import (
 )
 
 router = APIRouter()
+
+
+@router.get("/health")
+def get_ai_provider_health(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return provider configuration and recent failure metrics without network calls."""
+    return collect_ai_provider_health(db)
 
 
 @router.get("/provider")

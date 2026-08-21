@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { listContent, type Content } from '../api/content';
 import { listScheduledPosts, cancelScheduledPost, retryScheduledPost, type ScheduledPost } from '../api/scheduledPosts';
-import { getAIProviderStatus, type AIProviderStatus } from '../api/generation';
+import { getAIProviderHealth, getAIProviderStatus, type AIProviderHealth, type AIProviderStatus } from '../api/generation';
 
 function scheduleStatusLabel(status: string): string {
   switch (status) {
@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [providerStatus, setProviderStatus] = useState<AIProviderStatus | null>(null);
+  const [providerHealth, setProviderHealth] = useState<AIProviderHealth | null>(null);
 
   useEffect(() => {
     if (!isAuthenticated) return;
@@ -52,6 +53,9 @@ export default function Dashboard() {
     getAIProviderStatus()
       .then(setProviderStatus)
       .catch(() => setProviderStatus(null));
+    getAIProviderHealth()
+      .then(setProviderHealth)
+      .catch(() => setProviderHealth(null));
 
   }, [isAuthenticated]);
 
@@ -119,6 +123,11 @@ export default function Dashboard() {
           {providerStatus && (
             <p className={`text-xs mt-2 ${providerStatus.configured ? 'text-emerald-600' : 'text-red-600'}`}>
               {providerStatus.configured ? (providerStatus.free_model ? 'Free model configured' : 'Configured') : 'Not configured'}
+            </p>
+          )}
+          {providerHealth?.alert && (
+            <p className="text-xs mt-1 text-red-600" title={providerHealth.alert_reason ?? undefined}>
+              Alert: {providerHealth.failed_jobs} failures · {providerHealth.retrying_plans} retries
             </p>
           )}
         </div>

@@ -37,3 +37,28 @@ export interface AIProviderStatus {
 export function getAIProviderStatus(): Promise<AIProviderStatus> {
   return apiGet<AIProviderStatus>('generation/provider');
 }
+
+
+export interface AIProviderHealth {
+  provider: string;
+  model: string | null;
+  configured: boolean;
+  fallback_enabled: boolean;
+  window_minutes: number;
+  failed_jobs: number;
+  retrying_plans: number;
+  alert: boolean;
+  alert_reason: string | null;
+  latest_failure: {
+    job_id: number;
+    provider: string | null;
+    model: string | null;
+    error_code: string | null;
+    completed_at: string | null;
+  } | null;
+  checked_at: string;
+}
+
+export function getAIProviderHealth(): Promise<AIProviderHealth> {
+  return apiGet<AIProviderHealth>('generation/health');
+}

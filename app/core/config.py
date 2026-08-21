@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     # AI provider configuration. Gemini remains the default for backward compatibility.
     ai_provider: str = "gemini"  # gemini or openrouter
     ai_fallback_enabled: bool = False  # Explicit opt-in; fallback may incur provider cost
+    ai_failure_alert_threshold: int = 3
+    ai_failure_alert_window_minutes: int = 60
     gemini_api_key: Optional[str] = None  # Get from https://aistudio.google.com/apikey
     gemini_model: str = "gemini-2.5-flash"
     gemini_input_cost_per_million_usd: float = 0.30

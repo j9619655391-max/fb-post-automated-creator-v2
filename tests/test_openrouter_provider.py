@@ -87,3 +87,52 @@ def test_provider_status_exposes_safe_metadata_only(client, api, auth_headers, m
     assert payload["free_model"] is True
     assert "api_key" not in payload
     assert "test-openrouter-key" not in response.text
+
+
+def test_provider_health_reports_recent_failure_alert(db, monkeypatch):
+    from datetime import datetime, timezone
+
+    from app.models.content_generation import ContentGenerationJob, GenerationStatus
+    from app.services.ai_provider_health_service import collect_ai_provider_health
+
+    monkeypatch.setattr(settings, "ai_provider", "openrouter")
+    monkeypatch.setattr(settings, "openrouter_api_key", "test-openrouter-key")
+    monkeypatch.setattr(settings, "openrouter_model", "openrouter/free")
+    monkeypatch.setattr(settings, "ai_failure_alert_threshold", 1)
+    monkeypatch.setattr(settings, "ai_failure_alert_window_minutes", 60)
+
+    job = ContentGenerationJob(
+        requested_by_id=1,
+        category_name="Operations",
+        model="openrouter/free",
+        provider="openrouter",
+        status=GenerationStatus.FAILED,
+        idempotency_key="provider-health-test",
+        error_code="PROVIDER_ERROR",
+        error_message="rate limit",
+        completed_at=datetime.now(timezone.utc),
+    )
+    db.add(job)
+    db.commit()
+
+    health = collect_ai_provider_health(db)
+    assert health["configured"] is True
+    assert health["failed_jobs"] == 1
+    assert health["alert"] is True
+    assert health["alert_reason"] == "generation_failures"
+    assert health["latest_failure"]["error_code"] == "PROVIDER_ERROR"
+
+
+def test_provider_health_endpoint_is_authenticated_and_secret_free(client, api, auth_headers, monkeypatch):
+    monkeypatch.setattr(settings, "ai_provider", "openrouter")
+    monkeypatch.setattr(settings, "openrouter_api_key", "test-openrouter-key")
+
+    unauthorized = client.get(f"{api}/generation/health")
+    assert unauthorized.status_code in {401, 403}
+
+    response = client.get(f"{api}/generation/health", headers=auth_headers)
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["provider"] == "openrouter"
+    assert "openrouter_api_key" not in payload
+    assert "test-openrouter-key" not in response.text

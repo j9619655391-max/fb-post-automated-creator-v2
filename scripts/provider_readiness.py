@@ -51,13 +51,28 @@ def _callback_check(name: str, value: str | None, expected_path: str) -> Check:
 
 
 def collect_checks() -> list[Check]:
+    active_provider = (settings.ai_provider or "gemini").strip().lower()
+    if active_provider == "openrouter":
+        active_ai_configured = _configured(settings.openrouter_api_key)
+        active_ai_detail = "configured" if active_ai_configured else "OPENROUTER_API_KEY is required for the active provider"
+    elif active_provider == "gemini":
+        active_ai_configured = _configured(settings.gemini_api_key)
+        active_ai_detail = "configured" if active_ai_configured else "GEMINI_API_KEY is required for the active provider"
+    else:
+        active_ai_configured = False
+        active_ai_detail = f"unsupported AI_PROVIDER={active_provider}"
+
     return [
+
         Check("Meta app credentials", _configured(settings.facebook_app_id) and _configured(settings.facebook_app_secret), "configured" if _configured(settings.facebook_app_id) and _configured(settings.facebook_app_secret) else "FACEBOOK_APP_ID and FACEBOOK_APP_SECRET are required"),
         _callback_check("Meta callback", settings.facebook_redirect_uri, "/api/v1/auth/facebook/callback"),
         Check("LinkedIn app credentials", _configured(settings.linkedin_client_id) and _configured(settings.linkedin_client_secret), "configured" if _configured(settings.linkedin_client_id) and _configured(settings.linkedin_client_secret) else "LINKEDIN_CLIENT_ID and LINKEDIN_CLIENT_SECRET are required"),
         _callback_check("LinkedIn callback", settings.linkedin_redirect_uri, "/api/v1/auth/linkedin/callback"),
         Check("Token encryption key", _configured(settings.token_encryption_key), "configured" if _configured(settings.token_encryption_key) else "TOKEN_ENCRYPTION_KEY is required"),
-        Check("Gemini API key", _configured(settings.gemini_api_key), "configured" if _configured(settings.gemini_api_key) else "GEMINI_API_KEY is required for AI generation"),
+        Check("Active AI provider", active_ai_configured, active_ai_detail),
+        Check("Gemini API key", _configured(settings.gemini_api_key), "configured" if _configured(settings.gemini_api_key) else "not configured", required=False),
+        Check("OpenRouter API key", _configured(settings.openrouter_api_key), "configured" if _configured(settings.openrouter_api_key) else "not configured", required=False),
+
         Check("Database", _configured(settings.database_url), "configured" if _configured(settings.database_url) else "DATABASE_URL is missing"),
         Check("Celery broker", _configured(settings.celery_broker_url), "configured" if _configured(settings.celery_broker_url) else "CELERY_BROKER_URL is missing"),
         Check("Production secret", settings.secret_key != "supersecretkeychangeinproduction", "non-default" if settings.secret_key != "supersecretkeychangeinproduction" else "SECRET_KEY still uses the development default"),

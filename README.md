@@ -77,7 +77,8 @@ app/
 
 ### Local provider sandbox
 
-For PostgreSQL, Redis, Celery, OAuth callbacks, and safe Meta/Instagram/LinkedIn sandbox validation, follow [docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK.md](docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK.md). The provider readiness command is safe and performs no network calls:
+For PostgreSQL, Redis, Celery, OAuth callbacks, and safe Meta/Instagram/LinkedIn sandbox validation, follow [docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK.md](docs/LOCAL_PROVIDER_SANDBOX_RUNBOOK.md). The provider readiness command is safe and performs no network calls. It checks Meta, LinkedIn, OAuth callback, active AI provider, encryption, deployment secret, database, and Celery configuration:
+
 
 ```bash
 python scripts/provider_readiness.py
@@ -150,7 +151,10 @@ The optional `docker-compose.local.yml` starts only PostgreSQL and Redis; run Fa
 - `POST /api/v1/cron/run?secret=CRON_SECRET` - Process due scheduled posts; call from cron job
 
 ### AI generation and automation plans
+- `GET /api/v1/generation/provider` - Return active AI provider/model readiness metadata without secrets
+- `GET /api/v1/generation/health` - Return recent provider failure/retry metrics without making network calls
 - `POST /api/v1/generation/draft` - Generate and persist one complete AI draft; approval is still required
+
 - `POST /api/v1/generation-plans/` - Create a daily/weekly approval-required generation plan
 - `GET /api/v1/generation-plans/` - List accessible generation plans
 - `POST /api/v1/generation-plans/{id}/pause` - Pause a plan
@@ -192,7 +196,9 @@ Copy `.env.example` to `.env` and configure:
 - **Facebook OAuth (optional):** `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `FACEBOOK_REDIRECT_URI`, `TOKEN_ENCRYPTION_KEY` (e.g. from `Fernet.generate_key().decode()`)
 - **LinkedIn OAuth (optional):** `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI`
 - **Cron (optional):** `CRON_SECRET` — secret for `POST /api/v1/cron/run` (server-side only)
-- **Gemini (optional):** `GEMINI_API_KEY` — for AI theme generation on New content (GET /vce/generate-themes)
+- **AI provider:** `AI_PROVIDER`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, and `AI_FALLBACK_ENABLED`
+- **AI monitoring:** `AI_FAILURE_ALERT_THRESHOLD` and `AI_FAILURE_ALERT_WINDOW_MINUTES`
+
 - **Celery (optional):** `CELERY_BROKER_URL` — Redis URL for scheduled Facebook posts (default `redis://localhost:6379/0`). Run Redis and: `celery -A app.scheduler worker -l info`
 
 ## Running the scheduler (Celery + Redis)

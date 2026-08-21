@@ -197,3 +197,14 @@ Recurring generation plans persist the last provider, error code/message, failur
 | Real social publishing during validation | Not attempted |
 
 Credential rotation remains a required operator action because the original keys were shared in chat. Replace both provider keys in the local ignored `.env`, recreate API/Worker/Beat, and rerun the provider smoke test after rotation.
+
+
+## Production-readiness checkpoint: provider health and sandbox controls
+
+The readiness diagnostic now treats the configured AI provider as the required AI check and treats the other provider key as optional. It never calls Meta, Instagram, LinkedIn, Gemini, or OpenRouter and never prints secret values. An authenticated provider-health endpoint reports only provider/model configuration, recent failed generation counts, retrying-plan counts, alert state, and sanitized latest error metadata.
+
+A 15-minute Celery health task performs the same local-only inspection and logs a sanitized alert event when configuration is missing or failure thresholds are exceeded. The running worker was recreated and confirmed to register `app.ai_provider_health_task` alongside generation and publishing tasks. The dashboard displays an alert indicator but does not expose provider credentials.
+
+The current sandbox audit confirms that Meta and LinkedIn credentials, secure callbacks, token encryption, and a non-default production secret are still required before live publishing tests. Meta Pages publishing requires the appropriate Page permissions and tasks; Instagram requires a professional account, connected authorization, publicly accessible media, and application-side rate-limit enforcement; LinkedIn organization publishing requires the appropriate organization permission and member role. These findings are documented with official references in `docs/PROVIDER_SANDBOX_READINESS_FINDINGS.md`.
+
+Validation: **39 backend tests passed**, Python compilation passed, frontend build passed, Alembic reported no drift, API returned HTTP 200, PostgreSQL and Redis were healthy, and no public social post was created.
