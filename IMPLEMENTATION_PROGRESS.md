@@ -186,3 +186,10 @@ The latest local validation reports **49 backend tests passed**, Python compilat
 The grounding hardening pass now distinguishes approved product/service/source facts from general workspace context. When a product-oriented category has no approved catalog facts, the generator is instructed to use generic fashion language only, and a deterministic detector adds `product_details_require_confirmation` plus specific unverified-detail flags for concrete garment, fabric, cut, or feature claims. This keeps the draft in the approval workflow while making factual confirmation explicit.
 
 Focused grounding and additive-seed tests pass. The local Docker API suite now reports **52 backend tests passed**, Python compilation passed, PostgreSQL Alembic drift check passed, and the Windows frontend production build passed with 85 modules. A full reload of `/creative-studio` retained Kashvera Fashion Designer as the active workspace. The hidden browser file input could not be targeted by the browser upload helper, so upload-to-render remains covered by renderer/service-level tests rather than being claimed as a completed UI upload test.
+
+
+## Complete image-plus-social-post package checkpoint
+
+Creative Studio now treats the reference-style image as only one part of a post. The new preview-only package endpoint creates one approval-required draft, renders the selected branded image template for Facebook, Instagram, and LinkedIn, and returns each image together with its platform copy, headline, caption, CTA, normalized hashtags, optional tags/mentions, and draft status. The UI now separates text printed inside the image from the caption shown beside the image and displays all metadata in the review cards.
+
+A backward-compatible `tags_json` field and Alembic migration `fe4f5a6b7c8d` were added to content packages. Integration and service tests cover three platform images plus complete metadata. Local validation now reports **54 backend tests passed**, Python compilation passed, frontend production build passed, and Alembic drift is clean. No post was approved, scheduled, published, sent to Telegram, boosted, or converted into a paid campaign.

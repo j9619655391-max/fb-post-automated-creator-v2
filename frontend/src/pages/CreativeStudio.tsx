@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useOrg } from '../context/OrgContext';
 import { listMedia, uploadMedia, type Media } from '../api/media';
-import { composeBrandedMedia, type BrandedMediaVariant, type BrandedMediaComposeRequest } from '../api/remainingRoadmap';
+import { composeCompleteSocialPackage, type CompleteSocialPostPackage, type CompleteSocialPostComposeRequest } from '../api/remainingRoadmap';
 
 const TEMPLATE_OPTIONS = [
   { value: 'fashion-editorial', label: 'Fashion editorial', description: 'Premium image-led card with an elegant text-safe panel.' },
@@ -14,16 +14,19 @@ export default function CreativeStudio() {
   const { currentOrg } = useOrg();
   const [media, setMedia] = useState<Media[]>([]);
   const [sourceMediaId, setSourceMediaId] = useState<number | ''>('');
-  const [templateFamily, setTemplateFamily] = useState<BrandedMediaComposeRequest['template_family']>('fashion-editorial');
+  const [templateFamily, setTemplateFamily] = useState<CompleteSocialPostComposeRequest['template_family']>('fashion-editorial');
   const [headline, setHeadline] = useState('');
   const [body, setBody] = useState('');
+  const [caption, setCaption] = useState('');
+  const [hashtags, setHashtags] = useState('fashion, style, tailoring');
+  const [tags, setTags] = useState('');
   const [cta, setCta] = useState('Message us for a consultation');
   const [website, setWebsite] = useState('');
   const [handle, setHandle] = useState('');
   const [phone, setPhone] = useState('');
   const [whatsapp, setWhatsapp] = useState('');
   const [location, setLocation] = useState('');
-  const [results, setResults] = useState<BrandedMediaVariant[]>([]);
+  const [results, setResults] = useState<CompleteSocialPostPackage[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -62,14 +65,17 @@ export default function CreativeStudio() {
       return;
     }
     setBusy(true);
-    setMessage('Rendering three platform-specific branded variants...');
+    setMessage('Creating the image plus Facebook, Instagram, and LinkedIn post packages...');
     setResults([]);
     try {
-      const variants = await composeBrandedMedia(currentOrg.id, {
+      const variants = await composeCompleteSocialPackage(currentOrg.id, {
         source_media_id: sourceMediaId,
         template_family: templateFamily,
         headline,
         body,
+        caption: caption || body,
+        hashtags: hashtags.split(',').map((item) => item.trim()).filter(Boolean),
+        tags: tags.split(',').map((item) => item.trim()).filter(Boolean),
         cta,
         website: website || undefined,
         handle: handle || undefined,
@@ -78,7 +84,7 @@ export default function CreativeStudio() {
         location: location || undefined,
       });
       setResults(variants);
-      setMessage('Variants generated. They are stored as drafts/assets and are not published automatically.');
+      setMessage('Complete image-plus-caption packages generated. They are drafts/previews and are not published automatically.');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : 'Template rendering failed.');
     } finally {
@@ -133,10 +139,13 @@ export default function CreativeStudio() {
         <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
           <div>
             <h2 className="font-semibold text-slate-900">2. Write the exact creative copy</h2>
-            <p className="text-sm text-slate-500 mt-1">For a fashion business, use product, collection, fabric, styling, occasion, booking, or fashion-quote intent.</p>
+            <p className="text-sm text-slate-500 mt-1">The headline/body/CTA are printed on the image. The caption, hashtags, and tags are the text that accompanies the image when posted.</p>
           </div>
           <input value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder="Headline / collection / quote title" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Quote, product description, fabric detail, styling tip, or collection story" rows={5} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Text printed on the image: quote, product detail, styling line, or collection story" rows={4} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <textarea value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Post caption that appears with the image" rows={5} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <input value={hashtags} onChange={(event) => setHashtags(event.target.value)} placeholder="Hashtags, comma separated: fashion, tailoring, style" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Tags or mentions, comma separated: @brand, bridal clients" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           <input value={cta} onChange={(event) => setCta(event.target.value)} placeholder="CTA: Book a consultation / WhatsApp us / Visit the studio" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           <div className="grid sm:grid-cols-2 gap-3">
             <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="Instagram/Facebook handle" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
@@ -151,13 +160,20 @@ export default function CreativeStudio() {
 
       <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
         <h2 className="font-semibold text-slate-900">3. Review before approval</h2>
-        <p className="text-sm text-slate-500 mt-1">Generated assets are previews only. Publishing still requires the existing human approval gate.</p>
-        {results.length === 0 ? <p className="text-sm text-slate-500 mt-4">No variants generated yet.</p> : (
+        <p className="text-sm text-slate-500 mt-1">Each card below contains the image and the exact social copy package for that platform. Publishing still requires the existing human approval gate.</p>
+        {results.length === 0 ? <p className="text-sm text-slate-500 mt-4">No complete post package generated yet.</p> : (
           <div className="grid md:grid-cols-3 gap-4 mt-4">
-            {results.map((variant) => (
-              <div key={variant.id} className="rounded-lg border border-slate-200 overflow-hidden">
-                <img src={variant.url} alt={variant.filename} className="w-full aspect-square object-cover bg-slate-100" />
-                <p className="px-3 py-2 text-xs text-slate-600 truncate" title={variant.filename}>{variant.filename}</p>
+            {results.map((post) => (
+              <div key={post.package_id} className="rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
+                <img src={post.image.url} alt={`${post.platform} creative: ${post.headline}`} className="w-full aspect-square object-cover bg-slate-100" />
+                <div className="p-3 space-y-2">
+                  <div className="flex items-center justify-between"><span className="text-xs font-black uppercase tracking-wider text-indigo-700">{post.platform}</span><span className="text-[11px] text-slate-500">{post.status}</span></div>
+                  <p className="text-sm font-semibold text-slate-900">{post.headline}</p>
+                  <p className="text-xs text-slate-700 whitespace-pre-wrap">{post.caption}</p>
+                  {post.cta && <p className="text-xs font-semibold text-indigo-700">CTA: {post.cta}</p>}
+                  <p className="text-xs text-slate-500 break-words">{post.hashtags.join(' ')}</p>
+                  {post.tags.length > 0 && <p className="text-xs text-slate-500 break-words">Tags: {post.tags.join(', ')}</p>}
+                </div>
               </div>
             ))}
           </div>

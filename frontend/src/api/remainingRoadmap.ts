@@ -72,6 +72,26 @@ export interface BrandedMediaComposeRequest {
   location?: string;
 }
 
+export interface CompleteSocialPostPackage {
+  content_id: number;
+  package_id: number;
+  platform: 'facebook' | 'instagram' | 'linkedin';
+  image: BrandedMediaVariant;
+  headline: string;
+  caption: string;
+  cta?: string | null;
+  hashtags: string[];
+  tags: string[];
+  status: string;
+}
+
+export interface CompleteSocialPostComposeRequest extends BrandedMediaComposeRequest {
+  platforms?: Array<'facebook' | 'instagram' | 'linkedin'>;
+  caption?: string;
+  hashtags: string[];
+  tags: string[];
+}
+
 export interface AutomationDecision {
   content_id: number;
   risk_score: number;
@@ -116,6 +136,10 @@ export function clearEmergencyStop(orgId: number): Promise<AutomationPolicy> {
 
 export function composeBrandedMedia(orgId: number, request: BrandedMediaComposeRequest): Promise<BrandedMediaVariant[]> {
   return apiPost<BrandedMediaVariant[]>(`organizations/${orgId}/media/compose`, request);
+}
+
+export function composeCompleteSocialPackage(orgId: number, request: CompleteSocialPostComposeRequest): Promise<CompleteSocialPostPackage[]> {
+  return apiPost<CompleteSocialPostPackage[]>(`organizations/${orgId}/media/compose-package`, request);
 }
 
 export function getAutomationDecision(orgId: number, contentId: number): Promise<AutomationDecision> {

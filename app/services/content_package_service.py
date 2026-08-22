@@ -28,14 +28,30 @@ def _source_urls(opportunity: ContentOpportunity | None) -> list[str]:
     return [opportunity.source_url] if opportunity.source_url else []
 
 
-def _adapt_caption(content: Content, platform: str, opportunity: ContentOpportunity | None) -> str:
-    body = (content.body or "").strip()
+def _adapt_caption(
+    content: Content,
+    platform: str,
+    opportunity: ContentOpportunity | None,
+    caption: str | None = None,
+) -> str:
+    body = (caption or content.body or "").strip()
     source_note = f"\n\nSource for review: {opportunity.source_url}" if opportunity and opportunity.source_url else ""
     if platform == "linkedin":
         return f"{content.title}\n\n{body}{source_note}"
     if platform == "instagram":
         return f"{content.title}\n\n{body}\n\nShare this with someone who needs it.{source_note}"
     return f"{content.title}\n\n{body}{source_note}"
+
+
+def _normalize_items(values: list[str] | None) -> list[str]:
+    return list(dict.fromkeys(str(value).strip() for value in (values or []) if str(value).strip()))[:40]
+
+
+def _normalize_hashtags(values: list[str] | None, platform: str) -> list[str]:
+    supplied = _normalize_items(values)
+    if supplied:
+        return [value if value.startswith("#") else f"#{value.lstrip('#')}" for value in supplied]
+    return [f"#{platform}", "#fashion", "#style"]
 
 
 def create_content_packages(
@@ -45,6 +61,12 @@ def create_content_packages(
     platforms: list[str],
     theme_id: int | None = None,
     opportunity_id: int | None = None,
+    *,
+    caption: str | None = None,
+    cta: str | None = None,
+    hashtags: list[str] | None = None,
+    tags: list[str] | None = None,
+    media_variant_ids_by_platform: dict[str, list[int]] | None = None,
 ) -> list[ContentPackage]:
     content = db.query(Content).filter(Content.id == content_id, Content.organization_id == organization_id).first()
     if not content:
@@ -71,14 +93,36 @@ def create_content_packages(
         package.theme_id = theme.id if theme else None
         package.opportunity_id = opportunity.id if opportunity else None
         package.headline = content.title
-        package.caption = _adapt_caption(content, platform, opportunity)
-        package.cta = "Learn more" if platform == "linkedin" else "Tell us what you think"
-        package.hashtags_json = json.dumps([f"#{platform}"])
+        package.caption = _adapt_caption(content, platform, opportunity, caption)
+        package.cta = cta or ("Book a consultation" if platform == "linkedin" else "Send us a message")
+        package.hashtags_json = json.dumps(_normalize_hashtags(hashtags, platform))
+        package.tags_json = json.dumps(_normalize_items(tags))
         package.source_urls_json = json.dumps(_source_urls(opportunity))
-        package.media_variant_ids_json = json.dumps([])
+        package.media_variant_ids_json = json.dumps((media_variant_ids_by_platform or {}).get(platform, []))
         package.status = "draft"
         packages.append(package)
     db.commit()
     for package in packages:
         db.refresh(package)
     return packages
+
+
+def content_package_payload(package: ContentPackage) -> dict[str, Any]:
+    return {
+        "id": package.id,
+        "organization_id": package.organization_id,
+        "source_content_id": package.source_content_id,
+        "theme_id": package.theme_id,
+        "opportunity_id": package.opportunity_id,
+        "platform": package.platform,
+        "headline": package.headline,
+        "caption": package.caption,
+        "cta": package.cta,
+        "hashtags": _json_list(package.hashtags_json),
+        "tags": _json_list(package.tags_json),
+        "source_urls": _json_list(package.source_urls_json),
+        "media_variant_ids": [int(value) for value in _json_list(package.media_variant_ids_json) if value.isdigit()],
+        "status": package.status,
+        "created_at": package.created_at,
+        "updated_at": package.updated_at,
+    }

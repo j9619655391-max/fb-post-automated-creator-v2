@@ -1,7 +1,7 @@
 """Schemas for social intelligence, publishing analytics, and automation controls."""
 
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -110,6 +110,30 @@ class BrandedMediaVariantResponse(BaseModel):
     mime_type: str
     file_size: int
     url: str
+
+
+class CompleteSocialPostComposeRequest(BrandedMediaComposeRequest):
+    platforms: list[Literal["facebook", "instagram", "linkedin"]] = Field(
+        default_factory=lambda: ["facebook", "instagram", "linkedin"],
+        min_length=1,
+        max_length=3,
+    )
+    caption: Optional[str] = Field(default=None, max_length=5000)
+    hashtags: list[str] = Field(default_factory=list, max_length=40)
+    tags: list[str] = Field(default_factory=list, max_length=40)
+
+
+class CompleteSocialPostPackageResponse(BaseModel):
+    content_id: int
+    package_id: int
+    platform: Literal["facebook", "instagram", "linkedin"]
+    image: BrandedMediaVariantResponse
+    headline: str
+    caption: str
+    cta: Optional[str] = None
+    hashtags: list[str]
+    tags: list[str]
+    status: str
 
 
 class AutomationDecisionResponse(BaseModel):

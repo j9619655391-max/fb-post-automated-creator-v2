@@ -21,6 +21,7 @@ class ContentPackageResponse(BaseModel):
     caption: str
     cta: Optional[str] = None
     hashtags: list[str]
+    tags: list[str]
     source_urls: list[str]
     media_variant_ids: list[int]
     status: str

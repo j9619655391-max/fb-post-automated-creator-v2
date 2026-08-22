@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_current_user
 from app.core.database import get_db
-from app.models.content import Content
+from app.models.content import Content, ContentStatus
 from app.models.publishing_metric import PublishingMetric
 from app.models.social_signal import SocialSignal
 from app.models.user import User
@@ -20,6 +20,8 @@ from app.schemas.remaining_roadmap import (
     AutomationPolicyUpsert,
     BrandedMediaComposeRequest,
     BrandedMediaVariantResponse,
+    CompleteSocialPostComposeRequest,
+    CompleteSocialPostPackageResponse,
     PublishingMetricCreate,
     PublishingMetricResponse,
     SocialSignalCreate,
@@ -29,6 +31,7 @@ from app.services.performance_service import ingest_metric, summarize_performanc
 from app.services.risk_policy_service import assess_content_risk, autopilot_decision, get_or_create_policy
 from app.services.social_listening_service import collect_workspace_signals, create_manual_signal, summarize_signals
 from app.services.media_composer_service import compose_branded_variants
+from app.services.content_package_service import create_content_packages, content_package_payload
 from app.services.media_service import MediaService
 from app.api.routes.workspace_intelligence import _member_or_403
 
@@ -173,6 +176,95 @@ def compose_media(org_id: int, payload: BrandedMediaComposeRequest, db: Session 
             for media in variants
         ]
     except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post("/{org_id}/media/compose-package", response_model=list[CompleteSocialPostPackageResponse])
+def compose_complete_social_package(
+    org_id: int,
+    payload: CompleteSocialPostComposeRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create an approval-required draft with image and per-platform social copy."""
+    _member_or_403(db, org_id, current_user.id, write=True)
+    headline = payload.headline.strip()
+    caption = (payload.caption or payload.body).strip()
+    if not headline or not caption:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Headline and caption/body are required")
+
+    try:
+        content = Content(
+            title=headline,
+            body=caption,
+            status=ContentStatus.DRAFT,
+            organization_id=org_id,
+            created_by_id=current_user.id,
+            media_id=payload.source_media_id,
+        )
+        assess_content_risk(content, [])
+        db.add(content)
+        db.flush()
+        variants = compose_branded_variants(
+            db,
+            organization_id=org_id,
+            user_id=current_user.id,
+            source_media_id=payload.source_media_id,
+            theme_id=payload.theme_id,
+            template_family=payload.template_family,
+            headline=headline,
+            body=payload.body or caption,
+            cta=payload.cta,
+            website=payload.website,
+            handle=payload.handle,
+            phone=payload.phone,
+            whatsapp=payload.whatsapp,
+            location=payload.location,
+        )
+        variant_by_platform = {media.filename.split("-", 1)[0]: media for media in variants}
+        packages = create_content_packages(
+            db,
+            content.id,
+            org_id,
+            [str(platform) for platform in payload.platforms],
+            payload.theme_id,
+            None,
+            caption=caption,
+            cta=payload.cta,
+            hashtags=payload.hashtags,
+            tags=payload.tags,
+            media_variant_ids_by_platform={platform: [media.id] for platform, media in variant_by_platform.items()},
+        )
+        media_service = MediaService(db)
+        results = []
+        for package in packages:
+            image = variant_by_platform.get(package.platform)
+            if image is None:
+                raise ValueError(f"Rendered image missing for {package.platform}")
+            package_data = content_package_payload(package)
+            results.append(
+                {
+                    "content_id": content.id,
+                    "package_id": package.id,
+                    "platform": package.platform,
+                    "image": {
+                        "id": image.id,
+                        "filename": image.filename,
+                        "mime_type": image.mime_type,
+                        "file_size": image.file_size,
+                        "url": media_service.get_public_url(image),
+                    },
+                    "headline": package_data["headline"] or headline,
+                    "caption": package_data["caption"],
+                    "cta": package_data["cta"],
+                    "hashtags": package_data["hashtags"],
+                    "tags": package_data["tags"],
+                    "status": package_data["status"],
+                }
+            )
+        return results
+    except ValueError as exc:
+        db.rollback()
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 
 

@@ -17,7 +17,7 @@ from app.schemas.content import (
         InsightsResponse,
 )
 from app.schemas.content_package import ContentPackageCreate, ContentPackageResponse
-from app.services.content_package_service import create_content_packages
+from app.services.content_package_service import create_content_packages, content_package_payload
 
 from app.services.content_service import ContentService
 from app.services.fb_api import publish_to_facebook
@@ -158,7 +158,8 @@ def create_content_package_variants(
         from app.models.organization import OrganizationMember
         if not db.query(OrganizationMember).filter(OrganizationMember.organization_id == organization_id, OrganizationMember.user_id == current_user.id).first():
             raise ValueError("Not a member of this workspace")
-        return create_content_packages(db, content_id, organization_id, payload.platforms, payload.theme_id, payload.opportunity_id)
+        packages = create_content_packages(db, content_id, organization_id, payload.platforms, payload.theme_id, payload.opportunity_id)
+        return [content_package_payload(package) for package in packages]
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
 

@@ -18,6 +18,7 @@ class ContentPackage(Base):
     caption = Column(Text, nullable=False)
     cta = Column(String(1000), nullable=True)
     hashtags_json = Column(Text, nullable=True)
+    tags_json = Column(Text, nullable=True)
     source_urls_json = Column(Text, nullable=True)
     media_variant_ids_json = Column(Text, nullable=True)
     status = Column(String(30), nullable=False, default="draft")
