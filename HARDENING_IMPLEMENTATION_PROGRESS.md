@@ -253,3 +253,16 @@ Telegram approval requests use server-side bot configuration, workspace chat/use
 The content-package layer persists platform-specific variants linked to source content, optional themes, and optional opportunities. Content packages retain source URLs and do not bypass moderation, quotas, provider permissions, cooldowns, or the human approval gate.
 
 Validation after this checkpoint: **46 backend tests passed**, Python compilation passed, frontend build passed, PostgreSQL migrations through `fc2a3b4c5d6e` applied, `alembic check` reported no new operations, Docker API/Worker/Beat restarted successfully, and local root/docs smoke checks returned HTTP 200. Real Telegram or social publishing remains operator-gated until local bot/provider credentials and authorized targets are configured.
+
+
+## Remaining roadmap hardening checkpoint
+
+Social signals are organization-scoped, deduplicated by source identity, and derived from public/source-grounded records or explicit operator input. Watch terms and competitor URLs are business configuration only; the workflow does not collect private personal data. Signal refresh is bounded and scheduled through the existing Celery worker, while source text remains untrusted reference data.
+
+Metric snapshots are immutable-point-in-time style records linked to workspace content and optional publish targets. Analytics aggregation is deterministic and provider-neutral; it does not infer unavailable metrics or make external API calls without configured adapters and credentials. Raw provider payloads are stored as operator-controlled metadata for later audit.
+
+Automation safeguards are fail-closed. Approval-required is the default, controlled mode does not bypass approval, critical-risk drafts cannot enter the approval queue, daily generation caps apply to recurring plans, and emergency stop blocks both recurring generation and queued scheduled publishing before provider execution. The operations UI makes the stop state and policy ceiling visible.
+
+Branded composition is restricted to workspace-owned source media and workspace-owned logo/theme references. The compositor preserves the source image inside platform-specific canvases, applies a bounded logo size and configured position, and stores variants through the existing media ownership boundary. The local Docker image now includes Pillow.
+
+Validation after this checkpoint: **49 backend tests passed**, Python compilation passed, frontend production build passed, migration `fd3b4c5d6e7f` applied, Alembic reported no drift, Pillow imported successfully in the API image, Docker API/Worker/Beat restarted, and API root returned HTTP 200. External provider publishing, live provider analytics synchronization, and live Telegram operation remain operator-gated.

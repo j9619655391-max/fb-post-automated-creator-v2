@@ -31,6 +31,7 @@ def _query_terms(profile: WorkspaceProfile | None) -> list[str]:
     if not profile:
         return []
     terms = _json_list(profile.keywords_json)
+    terms.extend(_json_list(profile.watch_terms_json))
     if profile.industry:
         terms.append(profile.industry)
     terms.extend(_json_list(profile.services_json)[:5])

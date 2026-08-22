@@ -51,6 +51,11 @@ class Content(Base):
     generated_by_ai = Column(Boolean, default=False, nullable=False, index=True)
     generation_job_id = Column(Integer, ForeignKey("content_generation_jobs.id", ondelete="SET NULL"), nullable=True, index=True)
 
+    # Safety and feedback-learning metadata
+    risk_score = Column(Integer, nullable=False, default=0, index=True)
+    risk_tier = Column(String(20), nullable=False, default="low", index=True)
+    risk_flags_json = Column(Text, nullable=True)
+
     # Relationships
     creator = relationship("User", foreign_keys=[created_by_id], backref="created_content")
     approver = relationship("User", foreign_keys=[approved_by_id], backref="approved_content")

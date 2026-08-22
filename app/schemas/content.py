@@ -51,6 +51,9 @@ class ContentResponse(ContentBase):
     media_id: Optional[int] = None
     generated_by_ai: bool = False
     generation_job_id: Optional[int] = None
+    risk_score: int = 0
+    risk_tier: str = "low"
+    risk_flags_json: Optional[str] = None
     publish_statuses: List[ContentPublishStatusResponse] = []
 
     model_config = ConfigDict(from_attributes=True)

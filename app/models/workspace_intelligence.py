@@ -35,6 +35,8 @@ class WorkspaceProfile(Base):
     preferred_content_formats_json = Column(Text, nullable=True)
     content_cadence_json = Column(Text, nullable=True)
     keywords_json = Column(Text, nullable=True)
+    watch_terms_json = Column(Text, nullable=True)
+    competitor_urls_json = Column(Text, nullable=True)
     preferred_languages_json = Column(Text, nullable=True)
     contact_email = Column(String(320), nullable=True)
     contact_phone = Column(String(80), nullable=True)

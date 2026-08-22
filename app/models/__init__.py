@@ -21,6 +21,9 @@ from app.models.brand_theme import BrandTheme
 from app.models.content_opportunity import ContentOpportunity, OpportunityStatus
 from app.models.content_revision import ContentRevision, TelegramApprovalRequest
 from app.models.content_package import ContentPackage
+from app.models.social_signal import SocialSignal
+from app.models.publishing_metric import PublishingMetric
+from app.models.workspace_automation import WorkspaceAutomationPolicy
 
 __all__ = [
     "User", "Content", "Media", "AuditLog", "OAuthState", "MetaUserToken", "LinkedInUserToken", "LinkedInAccount",
@@ -30,7 +33,7 @@ __all__ = [
     "ContentCategory", "HookTemplate", "ContentPublishStatus",
     "SystemSetting", "ContentGenerationJob", "GenerationStatus",
         "ContentGenerationPlan", "GenerationPlanStatus", "GenerationRecurrence", "ApprovalMode",
-    "ContentGenerationUsage", "WorkspaceProfile", "WorkspaceSource", "BrandTheme", "ContentOpportunity", "OpportunityStatus", "ContentRevision", "TelegramApprovalRequest", "ContentPackage",
+    "ContentGenerationUsage", "WorkspaceProfile", "WorkspaceSource", "BrandTheme", "ContentOpportunity", "OpportunityStatus", "ContentRevision", "TelegramApprovalRequest", "ContentPackage", "SocialSignal", "PublishingMetric", "WorkspaceAutomationPolicy",
 
 ]
 

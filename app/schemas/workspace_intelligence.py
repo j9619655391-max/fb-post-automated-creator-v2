@@ -22,6 +22,8 @@ class WorkspaceProfileUpsert(BaseModel):
     preferred_content_formats: list[str] = Field(default_factory=list, max_length=20)
     content_cadence: dict[str, Any] = Field(default_factory=dict)
     keywords: list[str] = Field(default_factory=list, max_length=100)
+    watch_terms: list[str] = Field(default_factory=list, max_length=100)
+    competitor_urls: list[AnyHttpUrl] = Field(default_factory=list, max_length=50)
     preferred_languages: list[str] = Field(default_factory=list, max_length=20)
     contact_email: Optional[str] = Field(default=None, max_length=320)
     contact_phone: Optional[str] = Field(default=None, max_length=80)
