@@ -167,3 +167,17 @@ Workspace automation policy now supports approval-required and controlled modes,
 Branded media composition now creates Facebook, Instagram, and LinkedIn image variants from an organization-owned source image, applies the selected theme palette, and overlays the configured logo position. Pillow is included in the backend image, and the composition endpoint returns stored preview URLs through the existing media ownership boundary.
 
 The latest local validation reports **49 backend tests passed**, Python compilation passed, frontend build passed, PostgreSQL migration `fd3b4c5d6e7f` applied, Alembic drift clean, Pillow import healthy, Docker API/Worker/Beat restarted, and API root HTTP 200. Live provider metric synchronization, live social listening APIs, real Telegram delivery, and social publishing remain gated by operator credentials and connected business accounts.
+
+
+## Kashvera Business-Aware Content and Creative Studio Checkpoint
+
+- Corrected the previous generic motivational test: the selected fashion workspace now receives business-aware intent rather than defaulting to unrelated life motivation.
+- Replaced the generic category seed behavior with additive business categories: Product Showcase, Collection Launch, Bridal & Occasion, Styling Tips, Fabric & Craft, Behind the Scenes, Customer Story, Offer & Booking, Fashion Quote, and Seasonal/Festival, while preserving legacy categories.
+- Updated AI draft and theme-generation prompts to use workspace business context and to prioritize fashion products, collections, tailoring, styling, craft, consultation, and verified public contact details.
+- Added four deterministic template families: Fashion Editorial, Product Catalog, Quote Card, and Collection Story.
+- Extended branded media composition with exact headline/body/quote/CTA, logo, website, handles, phone, WhatsApp, location, gradient, border, and multi-zone layout slots, producing Facebook, Instagram, and LinkedIn variants.
+- Added the `/creative-studio` portal and navigation entry for workspace-owned source media, exact creative copy, contact slots, and preview-only variant generation.
+- Fixed active-workspace persistence across route navigation using localStorage and immediate switcher writes.
+- Added `KASHVERA_CONTENT_STRATEGY.md`, `REFERENCE_IMAGE_INSPECTION.md`, and `CONTENT_STRATEGY_RESEARCH.md` documenting the supplied reference analysis and the distinction between organic posts and paid advertisements.
+- Validation: frontend build passed with 85 modules; backend compilation passed; full backend suite passed with 50 tests; Alembic drift check reported no new upgrade operations; safe browser test generated a Kashvera Product Showcase draft titled `Precision Tailoring: Spotlight on Our Signature Blazer` without scheduling or publishing.
+- Commit pushed: `f74765f` (`feat: add business-aware fashion content studio`).
