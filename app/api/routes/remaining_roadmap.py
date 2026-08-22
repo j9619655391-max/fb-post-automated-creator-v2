@@ -157,6 +157,15 @@ def compose_media(org_id: int, payload: BrandedMediaComposeRequest, db: Session 
             user_id=current_user.id,
             source_media_id=payload.source_media_id,
             theme_id=payload.theme_id,
+            template_family=payload.template_family,
+            headline=payload.headline,
+            body=payload.body,
+            cta=payload.cta,
+            website=payload.website,
+            handle=payload.handle,
+            phone=payload.phone,
+            whatsapp=payload.whatsapp,
+            location=payload.location,
         )
         media_service = MediaService(db)
         return [

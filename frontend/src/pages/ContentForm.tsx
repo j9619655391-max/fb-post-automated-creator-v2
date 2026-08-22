@@ -1,4 +1,22 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+const BUSINESS_OBJECTIVES = [
+  { value: 'product-showcase', label: 'Product showcase', guidance: 'Show a specific suit, garment, fabric, cut, embroidery, or design detail and invite an inquiry.' },
+  { value: 'collection-launch', label: 'Collection launch', guidance: 'Introduce a new collection or seasonal line with a clear fashion-led story and booking CTA.' },
+  { value: 'bridal-occasion', label: 'Bridal & occasion wear', guidance: 'Highlight bridal, partywear, ceremony, or event styling with consultation and custom-order intent.' },
+  { value: 'styling-tips', label: 'Styling advice', guidance: 'Give a practical styling idea connected to suits, fabrics, colors, fit, or accessories.' },
+  { value: 'fabric-craft', label: 'Fabric & craftsmanship', guidance: 'Explain fabric quality, tailoring, finishing, embroidery, or the craft behind the design.' },
+  { value: 'customer-story', label: 'Customer proof', guidance: 'Use an approved customer experience or testimonial angle without inventing a claim.' },
+  { value: 'offer-booking', label: 'Offer / consultation booking', guidance: 'Drive WhatsApp, phone, website, or in-store consultation inquiries using only configured facts.' },
+  { value: 'fashion-quote', label: 'Fashion quote card', guidance: 'Create an aspirational fashion quote tied to personal style, confidence, craftsmanship, or the brand story—not generic life motivation.' },
+];
+
+const VISUAL_TEMPLATES = [
+  { value: 'fashion-editorial', label: 'Fashion editorial', guidance: 'Premium image-led layout with generous negative space, elegant serif/sans pairing, and a restrained footer.' },
+  { value: 'product-catalog', label: 'Product catalog', guidance: 'Product-first layout with name, fabric/design detail, availability or custom-order cue, and contact CTA.' },
+  { value: 'quote-card', label: 'Quote card', guidance: 'Large quote hierarchy with quotation mark, highlighted keywords, logo/handle, and website or WhatsApp footer.' },
+  { value: 'collection-story', label: 'Collection story', guidance: 'Multi-zone composition for collection name, inspiration, hero image, design detail, and consultation CTA.' },
+];
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createContent, updateContent, getContent } from '../api/content';
@@ -27,7 +45,11 @@ export default function ContentForm() {
   // Automation: category → themes → load into form (new content only)
   const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategory | null>(null);
+
+  const [businessObjective, setBusinessObjective] = useState('product-showcase');
+  const [visualTemplate, setVisualTemplate] = useState('fashion-editorial');
   const [themes, setThemes] = useState<string[]>([]);
+
   const [themesLoading, setThemesLoading] = useState(false);
   const [themeError, setThemeError] = useState('');
 
@@ -67,7 +89,14 @@ export default function ContentForm() {
   // Load categories and pages when creating new content
   useEffect(() => {
     if (isEdit || !isAuthenticated) return;
-    getCategories().then(setCategories).catch(() => setCategories([]));
+    getCategories().then((items) => {
+
+      setCategories(items);
+      if (!selectedCategory) {
+        setSelectedCategory(items.find((item) => item.slug === 'product-showcase') ?? null);
+      }
+    }).catch(() => setCategories([]));
+
     listPages(currentOrg?.id).then(setPages).catch(() => setPages([]));
     listLinkedInAccounts().then(setLinkedinAccounts).catch(() => setLinkedinAccounts([]));
   }, [isEdit, isAuthenticated, currentOrg]);
@@ -80,7 +109,16 @@ export default function ContentForm() {
     }
     setThemeError('');
     setThemesLoading(true);
-    generateThemes({ category_id: selectedCategory.id, count: 8 })
+    const objective = BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective);
+
+    const template = VISUAL_TEMPLATES.find((item) => item.value === visualTemplate);
+    generateThemes({
+      category_id: selectedCategory.id,
+      count: 8,
+      organization_id: currentOrg?.id,
+      extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Visual template: ${template?.guidance ?? visualTemplate}.`,
+    })
+
       .then((res) => {
         if (res.available && res.themes.length) setThemes(res.themes);
         else if (!res.available) setThemeError('Theme generation not configured (add GEMINI_API_KEY).');
@@ -88,7 +126,7 @@ export default function ContentForm() {
       })
       .catch(() => setThemeError('Could not generate themes.'))
       .finally(() => setThemesLoading(false));
-  }, [isEdit, isAuthenticated, selectedCategory?.id]);
+  }, [isEdit, isAuthenticated, selectedCategory?.id, businessObjective, visualTemplate, currentOrg?.id]);
 
   function loadThemeIntoForm(theme: string) {
     setTitle(theme);
@@ -117,11 +155,16 @@ export default function ContentForm() {
     setGeneratingDraft(true);
     setError('');
     try {
+      const objective = BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective);
+
+      const template = VISUAL_TEMPLATES.find((item) => item.value === visualTemplate);
       const generated = await generateDraft({
         category_id: selectedCategory?.id,
         category_name: selectedCategory?.name,
         organization_id: currentOrg?.id,
+        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Visual template: ${template?.guidance ?? visualTemplate}. Never default to generic motivational content unless the objective explicitly asks for a fashion quote.`,
       });
+
       navigate(`/content/${generated.id}/edit`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not generate a draft');
@@ -234,15 +277,41 @@ export default function ContentForm() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Run the app with DB seed (Docker or init_db) to get Motivation, Tips, Reflection.</p>}
+                            {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Restart the local app once to seed business-aware fashion categories.</p>}
+              <div className="grid md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Business objective</label>
+                  <select
+                    value={businessObjective}
+                    onChange={(e) => setBusinessObjective(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
+                  >
+                    {BUSINESS_OBJECTIVES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">{BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective)?.guidance}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Creative template family</label>
+                  <select
+                    value={visualTemplate}
+                    onChange={(e) => setVisualTemplate(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
+                  >
+                    {VISUAL_TEMPLATES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">{VISUAL_TEMPLATES.find((item) => item.value === visualTemplate)?.guidance}</p>
+                </div>
+              </div>
               <div className="flex flex-wrap gap-2 mb-3">
+
                 <button
                   type="button"
                   onClick={handleGenerateDraft}
                   disabled={generatingDraft || !isAuthenticated}
                   className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {generatingDraft ? 'Generating draft...' : 'Generate complete draft'}
+                  {generatingDraft ? 'Generating draft...' : 'Generate business draft'}
+
                 </button>
               </div>
               {themesLoading && <p className="text-indigo-600 text-sm font-medium mb-2">Generating themes...</p>}

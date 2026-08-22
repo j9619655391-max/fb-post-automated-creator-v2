@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { Organization } from '../api/organizations';
 import { listMyOrganizations } from '../api/organizations';
 import { useAuth } from './AuthContext';
@@ -19,25 +19,27 @@ const OrgContext = createContext<OrgContextType | undefined>(undefined);
 export function OrgProvider({ children }: { children: ReactNode }) {
     const { isAuthenticated } = useAuth();
     const [organizations, setOrganizations] = useState<Organization[]>([]);
-    const [currentOrg, setCurrentOrg] = useState<Organization | null>(null);
+    const [currentOrg, setCurrentOrg] = useState<Organization | null>(() => {
+        const storedId = window.localStorage.getItem('active_org_id');
+        return storedId ? ({ id: Number(storedId) } as Organization) : null;
+    });
     const [isLoading, setIsLoading] = useState(false);
 
     const refreshOrganizations = async () => {
         if (!isAuthenticated) {
             setOrganizations([]);
             setCurrentOrg(null);
+            window.localStorage.removeItem('active_org_id');
             return;
         }
         setIsLoading(true);
         try {
             const orgs = await listMyOrganizations();
             setOrganizations(orgs);
-
-            // Auto-select first org if none selected, or keep selection if still available
             if (orgs.length > 0) {
-                if (!currentOrg || !orgs.find(o => o.id === currentOrg.id)) {
-                    setCurrentOrg(orgs[0]);
-                }
+                const storedId = Number(window.localStorage.getItem('active_org_id') || 0);
+                const preferred = orgs.find(o => o.id === storedId) || (currentOrg && orgs.find(o => o.id === currentOrg.id));
+                setCurrentOrg(preferred || orgs[0]);
             } else {
                 setCurrentOrg(null);
             }
@@ -52,9 +54,13 @@ export function OrgProvider({ children }: { children: ReactNode }) {
         refreshOrganizations();
     }, [isAuthenticated]);
 
+    useEffect(() => {
+        if (currentOrg) window.localStorage.setItem('active_org_id', String(currentOrg.id));
+    }, [currentOrg?.id]);
+
     const isPro = currentOrg?.subscription_tier === 'pro' || currentOrg?.subscription_tier === 'agency';
     const isAgency = currentOrg?.subscription_tier === 'agency';
-    const isAdmin = true; // Placeholder: in real app, we'd check current user's role in this org
+    const isAdmin = true;
 
     return (
         <OrgContext.Provider value={{
@@ -65,7 +71,7 @@ export function OrgProvider({ children }: { children: ReactNode }) {
             isLoading,
             isAdmin,
             isPro,
-            isAgency
+            isAgency,
         }}>
             {children}
         </OrgContext.Provider>
@@ -74,8 +80,6 @@ export function OrgProvider({ children }: { children: ReactNode }) {
 
 export function useOrg() {
     const context = useContext(OrgContext);
-    if (context === undefined) {
-        throw new Error('useOrg must be used within an OrgProvider');
-    }
+    if (context === undefined) throw new Error('useOrg must be used within OrgProvider');
     return context;
 }

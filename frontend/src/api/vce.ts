@@ -18,7 +18,8 @@ export function getCategories(): Promise<ContentCategory[]> {
 }
 
 export function generateThemes(
-  params: { category_id?: number; category_name?: string; count?: number }
+    params: { category_id?: number; category_name?: string; count?: number; organization_id?: number; extra_instruction?: string }
+
 ): Promise<GenerateThemesResponse> {
   return apiGet<GenerateThemesResponse>('vce/generate-themes', params as Record<string, string | number | undefined>);
 }

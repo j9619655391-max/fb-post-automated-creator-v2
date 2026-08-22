@@ -93,6 +93,15 @@ class AutomationPolicyResponse(AutomationPolicyUpsert):
 class BrandedMediaComposeRequest(BaseModel):
     source_media_id: int = Field(ge=1)
     theme_id: Optional[int] = Field(default=None, ge=1)
+    template_family: str = Field(default="fashion-editorial", pattern="^(fashion-editorial|product-catalog|quote-card|collection-story)$")
+    headline: str = Field(default="", max_length=240)
+    body: str = Field(default="", max_length=3000)
+    cta: str = Field(default="", max_length=300)
+    website: Optional[str] = Field(default=None, max_length=500)
+    handle: Optional[str] = Field(default=None, max_length=200)
+    phone: Optional[str] = Field(default=None, max_length=100)
+    whatsapp: Optional[str] = Field(default=None, max_length=100)
+    location: Optional[str] = Field(default=None, max_length=500)
 
 
 class BrandedMediaVariantResponse(BaseModel):

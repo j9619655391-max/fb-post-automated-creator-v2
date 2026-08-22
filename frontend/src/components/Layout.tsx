@@ -49,7 +49,10 @@ export default function Layout() {
                 { to: '/calendar', label: 'SCHEDULER' },
                 { to: '/automation-plans', label: 'AUTOPILOT' },
                 { to: '/content', label: 'PRODUCTION' },
-                { to: '/insights', label: 'ANALYTICS' },
+                                { to: '/insights', label: 'ANALYTICS' },
+                { to: '/roadmap-controls', label: 'OPERATIONS' },
+                { to: '/creative-studio', label: 'STUDIO' },
+
                 { to: '/platforms', label: 'NETWORK' },
                                 { to: '/organizations', label: 'WORKSPACE' },
                 { to: '/workspace-intelligence', label: 'KNOWLEDGE' },

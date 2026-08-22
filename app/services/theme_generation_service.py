@@ -9,6 +9,7 @@ from app.core.config import settings
 from app.models.content_category import ContentCategory
 from app.models.content_generation import ContentGenerationJob, GenerationStatus
 from app.models.content_generation_usage import ContentGenerationUsage
+from app.models.workspace_intelligence import WorkspaceProfile
 from app.services.genai_client import (
     GenerationUsage,
     active_provider_and_model,
@@ -27,6 +28,7 @@ def generate_themes(
     count: int = 5,
     extra_instruction: Optional[str] = None,
     user_id: Optional[int] = None,
+    organization_id: Optional[int] = None,
 ) -> List[str]:
     """Generate concise advisory themes through the configured AI provider."""
     try:
@@ -46,11 +48,37 @@ def generate_themes(
     elif category_name:
         category_label = category_name.strip() or "general"
 
-    prompt = f"""You are a creative content strategist for social media (Facebook page posts).
-Generate exactly {count} short content theme ideas for the category: "{category_label}".
-Each theme should be one line: a hook idea, topic, or angle.
-Return ONLY the list, one theme per line, no numbering or bullets.
-Keep themes concise, engaging, and suitable for a short post."""
+    profile = (
+        db.query(WorkspaceProfile)
+        .filter(WorkspaceProfile.organization_id == organization_id)
+        .first()
+        if organization_id
+        else None
+    )
+    business = ""
+    if profile:
+        business = "\n".join(
+            line for line in [
+                f"Business description: {profile.business_description}" if profile.business_description else "",
+                f"Industry: {profile.industry}" if profile.industry else "",
+                f"Services: {profile.services_json}" if profile.services_json else "",
+                f"Products/offers: {profile.products_json}" if profile.products_json else "",
+                f"Audience: {profile.target_audience}" if profile.target_audience else "",
+                f"Website: {profile.website_url}" if profile.website_url else "",
+            ]
+            if line
+        )
+    prompt = f"""You are a business-aware social media content strategist for Facebook, Instagram, and LinkedIn.
+Generate exactly {count} concise content theme ideas for the category: "{category_label}".
+Workspace business context:
+{business or "No business profile is configured."}
+
+Rules:
+- Make themes directly useful for this business's products, services, customers, offers, or brand story.
+- Do not default to generic motivation, life advice, or unrelated viral quotes unless the category is explicitly Fashion Quote, Motivation, or Reflection.
+- For a fashion/design business, prefer collection showcases, garment details, fabric/craft, styling, bridal/occasion wear, custom orders, customer proof, booking, and relevant seasonal moments.
+- Each theme must be one line: a hook idea, topic, or angle.
+Return ONLY the list, one theme per line, no numbering or bullets."""
     if extra_instruction:
         prompt += f"\nAdditional context: {extra_instruction}"
 
@@ -61,6 +89,7 @@ Keep themes concise, engaging, and suitable for a short post."""
             category_id=category_id,
             category_name=category_label,
             extra_instruction=extra_instruction,
+            organization_id=organization_id,
             model=model,
             provider=provider,
             status=GenerationStatus.GENERATING,

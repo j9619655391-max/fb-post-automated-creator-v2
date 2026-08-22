@@ -50,6 +50,28 @@ export interface AutomationPolicy {
   max_daily_generated_drafts: number;
 }
 
+export interface BrandedMediaVariant {
+  id: number;
+  filename: string;
+  mime_type: string;
+  file_size: number;
+  url: string;
+}
+
+export interface BrandedMediaComposeRequest {
+  source_media_id: number;
+  theme_id?: number;
+  template_family: 'fashion-editorial' | 'product-catalog' | 'quote-card' | 'collection-story';
+  headline: string;
+  body: string;
+  cta: string;
+  website?: string;
+  handle?: string;
+  phone?: string;
+  whatsapp?: string;
+  location?: string;
+}
+
 export interface AutomationDecision {
   content_id: number;
   risk_score: number;
@@ -90,6 +112,10 @@ export function triggerEmergencyStop(orgId: number, reason: string): Promise<Aut
 
 export function clearEmergencyStop(orgId: number): Promise<AutomationPolicy> {
   return apiPost<AutomationPolicy>(`organizations/${orgId}/automation/emergency-stop/clear`);
+}
+
+export function composeBrandedMedia(orgId: number, request: BrandedMediaComposeRequest): Promise<BrandedMediaVariant[]> {
+  return apiPost<BrandedMediaVariant[]>(`organizations/${orgId}/media/compose`, request);
 }
 
 export function getAutomationDecision(orgId: number, contentId: number): Promise<AutomationDecision> {

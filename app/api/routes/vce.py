@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
+from app.models.organization import OrganizationMember
+
 from app.schemas.vce import (
     ContentCategoryResponse,
     HookTemplateResponse,
@@ -92,11 +94,21 @@ def get_generated_themes(
     category_name: Optional[str] = Query(None, description="Category name for context (e.g. Motivation)"),
     count: int = Query(5, ge=1, le=15, description="Number of themes to generate"),
     extra_instruction: Optional[str] = Query(None, description="Optional extra context for the AI"),
+    organization_id: Optional[int] = Query(None, description="Workspace used to ground themes in business context"),
     db: Session = Depends(get_db),
+
     current_user: User = Depends(get_current_user),
 ):
-    """Generate content themes using Gemini API. Requires GEMINI_API_KEY. Advisory only."""
+    """Generate workspace-grounded content themes. Advisory only."""
+    if organization_id:
+        member = db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == organization_id,
+            OrganizationMember.user_id == current_user.id,
+        ).first()
+        if not member:
+            raise HTTPException(status_code=403, detail="Not a member of this organization")
     available = is_theme_generation_available()
+
     if not available:
         return GenerateThemesResponse(themes=[], available=False)
     themes = generate_themes(
@@ -106,5 +118,7 @@ def get_generated_themes(
         count=count,
         extra_instruction=extra_instruction,
         user_id=current_user.id,
+        organization_id=organization_id,
     )
+
     return GenerateThemesResponse(themes=themes, available=True)
