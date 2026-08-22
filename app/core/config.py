@@ -46,6 +46,22 @@ class Settings(BaseSettings):
     openrouter_input_cost_per_million_usd: float = 0.0
     openrouter_output_cost_per_million_usd: float = 0.0
 
+    # Fresh source and opportunity discovery (optional providers)
+    news_api_key: Optional[str] = None
+    news_api_base_url: str = "https://newsapi.org/v2/everything"
+    openalex_api_key: Optional[str] = None
+    openalex_api_base_url: str = "https://api.openalex.org/works"
+    source_discovery_timeout_seconds: float = 15.0
+    source_discovery_max_items: int = 20
+    rss_discovery_max_items_per_source: int = 10
+
+    # Telegram approval channel (token must remain server-side)
+    telegram_bot_token: Optional[str] = None
+    telegram_api_base_url: str = "https://api.telegram.org"
+    telegram_poll_timeout_seconds: int = 5
+    telegram_poll_interval_seconds: float = 2.0
+    telegram_request_timeout_seconds: float = 15.0
+
     # LinkedIn OAuth (Phase 6)
     linkedin_client_id: Optional[str] = None
     linkedin_client_secret: Optional[str] = None

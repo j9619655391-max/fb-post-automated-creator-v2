@@ -20,10 +20,14 @@ from app.models.content import Content
 from app.models.scheduled_post import ScheduledPost, ScheduledPostStatus, ScheduledPlatform
 from app.models.meta_page import MetaPage
 from app.models.linkedin_account import LinkedInAccount
+from app.models.workspace_intelligence import WorkspaceProfile
+from app.models.system_setting import SystemSetting
+
 from app.services.audit_service import AuditService
 from app.services.publish_errors import classify_publish_failure
 from app.services.scheduled_execution_service import ScheduledExecutionError, execute_scheduled_post
 from app.services.ai_provider_health_service import collect_ai_provider_health
+from app.services.telegram_approval_service import poll_telegram_updates, send_approval_request
 
 logger = logging.getLogger(__name__)
 
@@ -318,6 +322,58 @@ def token_guard_task():
     finally:
         db.close()
 
+@celery_app.task(name="app.telegram_approval_delivery_task")
+def telegram_approval_delivery_task():
+    """Deliver generated drafts to configured Telegram approvers without publishing."""
+    db = SessionLocal()
+    try:
+        drafts = (
+            db.query(Content)
+            .join(WorkspaceProfile, WorkspaceProfile.organization_id == Content.organization_id)
+            .filter(
+                Content.status == "draft",
+                WorkspaceProfile.telegram_approval_enabled.is_(True),
+                WorkspaceProfile.telegram_approval_chat_id.isnot(None),
+            )
+            .order_by(Content.created_at.asc())
+            .limit(25)
+            .all()
+        )
+        sent = 0
+        errors = 0
+        for content in drafts:
+            try:
+                if send_approval_request(db, content.id):
+                    sent += 1
+            except Exception:
+                errors += 1
+                logger.exception("telegram.approval_delivery_failed", extra={"content_id": content.id})
+        return {"enabled": bool(settings.telegram_bot_token), "sent": sent, "errors": errors}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.telegram_poll_task")
+def telegram_poll_task():
+    """Poll Telegram updates once and persist the next offset for idempotent restarts."""
+    db = SessionLocal()
+    try:
+        setting = db.query(SystemSetting).filter(SystemSetting.key == "telegram.update_offset").first()
+        offset = int(setting.value) if setting and setting.value and setting.value.isdigit() else None
+        result = poll_telegram_updates(db, offset)
+        next_offset = result.get("next_offset")
+        if next_offset is not None:
+            if setting is None:
+                setting = SystemSetting(key="telegram.update_offset", value=str(next_offset), description="Telegram approval polling offset")
+                db.add(setting)
+            else:
+                setting.value = str(next_offset)
+            db.commit()
+        return result
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.ai_provider_health_task")
 def ai_provider_health_task():
     """Log safe provider health alerts; this task performs no provider API calls."""
@@ -365,6 +421,14 @@ celery_app.conf.beat_schedule = {
     "check-ai-provider-health": {
         "task": "app.ai_provider_health_task",
         "schedule": 900.0, # 15 minutes
+    },
+    "deliver-telegram-approvals": {
+        "task": "app.telegram_approval_delivery_task",
+        "schedule": 30.0,
+    },
+    "poll-telegram-approvals": {
+        "task": "app.telegram_poll_task",
+        "schedule": 15.0,
     },
 
 }

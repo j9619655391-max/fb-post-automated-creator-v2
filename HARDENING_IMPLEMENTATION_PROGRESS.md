@@ -240,3 +240,16 @@ Live E2E validation still requires operator-supplied Meta/Instagram and LinkedIn
 
 
 Instagram publishing now checks Meta's rolling content-publishing quota before creating a container and polls the container status with bounded configurable attempts. Only `FINISHED` or `PUBLISHED` permits the publish call; `IN_PROGRESS`, `ERROR`, `EXPIRED`, unknown states, provider errors, and quota exhaustion remain visible to the existing retry/terminal/dead-letter classification path. This keeps provider rate limits and asynchronous media processing inside the same controlled publishing boundary.
+
+
+## Expanded content creator hardening checkpoint
+
+Brand Brain fields are now organization-scoped and permissioned through the existing workspace intelligence boundary. Theme CRUD is workspace-scoped with slug uniqueness and one-default-theme handling. Logo references are stored as media IDs rather than exposing files or tokens through profile responses; actual logo composition remains a controlled media-rendering phase.
+
+Fresh opportunity discovery supports RSS, optional News API, and OpenAlex research records with bounded HTTP timeouts, source URLs, publisher/date metadata, deduplication identifiers, freshness/relevance/trust scores, and evidence-only behavior. External source text is treated as untrusted data and is not copied directly into public posts.
+
+Telegram approval requests use server-side bot configuration, workspace chat/user authorization, idempotent persisted request rows, opaque callback IDs, expired/duplicate decision protection, persisted polling offsets, and approval-required state transitions. Rejection notes create explicit content-revision lineage and are passed as revision context to the AI generation service. Telegram delivery and polling are disabled when no bot token is configured.
+
+The content-package layer persists platform-specific variants linked to source content, optional themes, and optional opportunities. Content packages retain source URLs and do not bypass moderation, quotas, provider permissions, cooldowns, or the human approval gate.
+
+Validation after this checkpoint: **46 backend tests passed**, Python compilation passed, frontend build passed, PostgreSQL migrations through `fc2a3b4c5d6e` applied, `alembic check` reported no new operations, Docker API/Worker/Beat restarted successfully, and local root/docs smoke checks returned HTTP 200. Real Telegram or social publishing remains operator-gated until local bot/provider credentials and authorized targets are configured.

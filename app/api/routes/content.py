@@ -14,8 +14,11 @@ from app.schemas.content import (
     ContentApprovalRequest,
     PublishToFacebookRequest,
     PublishToLinkedInRequest,
-    InsightsResponse,
+        InsightsResponse,
 )
+from app.schemas.content_package import ContentPackageCreate, ContentPackageResponse
+from app.services.content_package_service import create_content_packages
+
 from app.services.content_service import ContentService
 from app.services.fb_api import publish_to_facebook
 from app.services.linkedin_api import publish_to_linkedin
@@ -143,7 +146,25 @@ def update_content(
         )
 
 
+@router.post("/{content_id}/packages", response_model=List[ContentPackageResponse])
+def create_content_package_variants(
+    content_id: int,
+    payload: ContentPackageCreate,
+    organization_id: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        from app.models.organization import OrganizationMember
+        if not db.query(OrganizationMember).filter(OrganizationMember.organization_id == organization_id, OrganizationMember.user_id == current_user.id).first():
+            raise ValueError("Not a member of this workspace")
+        return create_content_packages(db, content_id, organization_id, payload.platforms, payload.theme_id, payload.opportunity_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
 @router.post("/{content_id}/submit", response_model=ContentResponse)
+
 def submit_for_approval(
     content_id: int,
     db: Session = Depends(get_db),

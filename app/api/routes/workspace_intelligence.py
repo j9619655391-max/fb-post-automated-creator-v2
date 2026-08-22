@@ -11,6 +11,8 @@ from app.core.database import get_db
 from app.models.organization import OrganizationMember, OrganizationRole
 from app.models.user import User
 from app.models.workspace_intelligence import WorkspaceProfile, WorkspaceSource
+from app.models.content_opportunity import ContentOpportunity
+from app.services.opportunity_service import discover_workspace_opportunities
 from app.services.workspace_intelligence_service import (
     WorkspaceSourceRefreshError,
     refresh_website_source,
@@ -22,6 +24,7 @@ from app.schemas.workspace_intelligence import (
     WorkspaceProfileUpsert,
     WorkspaceSourceCreate,
     WorkspaceSourceResponse,
+    ContentOpportunityResponse,
 )
 
 router = APIRouter()
@@ -69,6 +72,7 @@ def _profile_payload(profile: WorkspaceProfile) -> dict[str, Any]:
         "organization_id": profile.organization_id,
         "business_description": profile.business_description,
         "mission": profile.mission,
+        "tagline": profile.tagline,
         "industry": profile.industry,
         "services": _json_list(profile.services_json),
         "products": _json_list(profile.products_json),
@@ -76,6 +80,11 @@ def _profile_payload(profile: WorkspaceProfile) -> dict[str, Any]:
         "locations": _json_list(profile.locations_json),
         "brand_voice": profile.brand_voice,
         "tone": profile.tone,
+        "visual_style": profile.visual_style,
+        "brand_colors": _json_list(profile.brand_colors_json),
+        "font_preferences": _json_list(profile.font_preferences_json),
+        "preferred_content_formats": _json_list(profile.preferred_content_formats_json),
+        "content_cadence": _json_dict(profile.content_cadence_json),
         "keywords": _json_list(profile.keywords_json),
         "preferred_languages": _json_list(profile.preferred_languages_json),
         "contact_email": profile.contact_email,
@@ -87,11 +96,36 @@ def _profile_payload(profile: WorkspaceProfile) -> dict[str, Any]:
         "facebook_url": profile.facebook_url,
         "instagram_url": profile.instagram_url,
         "whatsapp_url": profile.whatsapp_url,
+        "logo_media_id": profile.logo_media_id,
+        "telegram_approval_chat_id": profile.telegram_approval_chat_id,
+        "telegram_approval_user_id": profile.telegram_approval_user_id,
+        "telegram_approval_enabled": profile.telegram_approval_enabled,
+        "approval_required": profile.approval_required,
         "approved_claims": _json_list(profile.approved_claims_json),
         "prohibited_claims": _json_list(profile.prohibited_claims_json),
         "last_refreshed_at": profile.last_refreshed_at,
         "created_at": profile.created_at,
         "updated_at": profile.updated_at,
+    }
+
+
+def _opportunity_payload(opportunity: ContentOpportunity) -> dict[str, Any]:
+    return {
+        "id": opportunity.id,
+        "organization_id": opportunity.organization_id,
+        "source_type": opportunity.source_type,
+        "source_url": opportunity.source_url,
+        "publisher": opportunity.publisher,
+        "external_id": opportunity.external_id,
+        "title": opportunity.title,
+        "summary": opportunity.summary,
+        "source_published_at": opportunity.source_published_at,
+        "discovered_at": opportunity.discovered_at,
+        "freshness_score": opportunity.freshness_score,
+        "relevance_score": opportunity.relevance_score,
+        "trust_score": opportunity.trust_score,
+        "status": opportunity.status,
+        "metadata": _json_dict(opportunity.metadata_json),
     }
 
 
@@ -122,6 +156,10 @@ def _apply_profile(profile: WorkspaceProfile, payload: WorkspaceProfileUpsert) -
         "services": "services_json",
         "products": "products_json",
         "locations": "locations_json",
+        "brand_colors": "brand_colors_json",
+        "font_preferences": "font_preferences_json",
+        "preferred_content_formats": "preferred_content_formats_json",
+        "content_cadence": "content_cadence_json",
         "keywords": "keywords_json",
         "preferred_languages": "preferred_languages_json",
         "approved_claims": "approved_claims_json",
@@ -175,6 +213,37 @@ def upsert_workspace_profile(
     db.commit()
     db.refresh(profile)
     return _profile_payload(profile)
+
+
+@router.get("/{org_id}/intelligence/opportunities", response_model=list[ContentOpportunityResponse])
+def list_workspace_opportunities(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id)
+    opportunities = (
+        db.query(ContentOpportunity)
+        .filter(ContentOpportunity.organization_id == org_id)
+        .order_by((ContentOpportunity.relevance_score + ContentOpportunity.freshness_score).desc(), ContentOpportunity.discovered_at.desc())
+        .limit(100)
+        .all()
+    )
+    return [_opportunity_payload(opportunity) for opportunity in opportunities]
+
+
+@router.post("/{org_id}/intelligence/opportunities/discover", response_model=list[ContentOpportunityResponse])
+def discover_opportunities(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    try:
+        opportunities = discover_workspace_opportunities(db, org_id)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Opportunity discovery failed: {exc}") from exc
+    return [_opportunity_payload(opportunity) for opportunity in opportunities]
 
 
 @router.post("/{org_id}/intelligence/sources", response_model=WorkspaceSourceResponse, status_code=status.HTTP_201_CREATED)

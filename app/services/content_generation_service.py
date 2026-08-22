@@ -152,6 +152,7 @@ def _workspace_context(db: Session, organization_id: Optional[int]) -> tuple[str
         profile_lines = [
             ("Business description", profile.business_description),
             ("Mission", profile.mission),
+            ("Tagline", profile.tagline),
             ("Industry", profile.industry),
             ("Services", ", ".join(_json_list(profile.services_json))),
             ("Products", ", ".join(_json_list(profile.products_json))),
@@ -159,6 +160,10 @@ def _workspace_context(db: Session, organization_id: Optional[int]) -> tuple[str
             ("Locations", ", ".join(_json_list(profile.locations_json))),
             ("Brand voice", profile.brand_voice),
             ("Tone", profile.tone),
+            ("Visual style", profile.visual_style),
+            ("Brand colors", ", ".join(_json_list(profile.brand_colors_json))),
+            ("Font preferences", ", ".join(_json_list(profile.font_preferences_json))),
+            ("Preferred content formats", ", ".join(_json_list(profile.preferred_content_formats_json))),
             ("Keywords", ", ".join(_json_list(profile.keywords_json))),
             ("Preferred languages", ", ".join(_json_list(profile.preferred_languages_json))),
             ("Website", profile.website_url),

@@ -143,3 +143,14 @@ The remaining live-provider boundary is unchanged: real Meta/Instagram and Linke
 
 
 Instagram controlled publishing now performs Meta's rolling content-publishing-limit preflight before creating a container, then polls `status_code` with a bounded configurable window and only calls `media_publish` after `FINISHED` or `PUBLISHED`. `ERROR`, `EXPIRED`, unknown states, exhausted polling, and quota exhaustion are surfaced through the existing publishing failure classifier and approval-required worker safeguards. The focused provider suite now covers Meta linkage, LinkedIn organization discovery, and the `IN_PROGRESS` to `FINISHED` Instagram path.
+
+
+## Expanded content creator checkpoint
+
+The workspace intelligence profile now includes Brand Brain fields for tagline, visual style, brand colors, font preferences, preferred content formats, logo media reference, Telegram approval destination, approval-required state, and content preferences. A workspace theme model and CRUD API now support reusable named visual directions, palettes, logo placement, background style, and supported formats.
+
+Fresh content opportunity discovery now supports configured RSS sources, optional News API search, and OpenAlex research search. Opportunities persist source URL, publisher, source date, freshness score, relevance score, trust score, and metadata. The UI exposes a manual discovery action and source links; discovery is evidence collection only and does not copy articles automatically.
+
+Source-grounded content packages now persist platform-specific Facebook, Instagram, and LinkedIn variants linked to an optional theme and opportunity. The initial package adapter preserves provenance and platform-specific caption/CTA differences. Telegram approval infrastructure now persists approval requests, sends inline Accept/Reject messages, captures rejection-note replies, creates revision lineage, and polls updates through a Celery task with a persisted update offset. Delivery is enabled only for workspaces that explicitly configure Telegram approval and remains approval-required.
+
+Local PostgreSQL migrations through revision `fc2a3b4c5d6e` have been applied. Existing regression tests plus two workflow tests pass. The local frontend build, backend compilation, Alembic drift check, Docker service restart, and HTTP root/docs smoke checks have been validated. Real Telegram delivery remains operator-gated until a bot token and authorized chat/user IDs are added to the local environment.

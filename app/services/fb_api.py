@@ -199,6 +199,7 @@ def publish_to_instagram(
 
         # Step 3 – Create media container
         container_resp = client.post(
+
             f"{META_GRAPH_BASE}/{ig_id}/media",
             params={
                 "image_url": image_url,
