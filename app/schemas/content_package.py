@@ -24,6 +24,7 @@ class ContentPackageResponse(BaseModel):
     tags: list[str]
     source_urls: list[str]
     media_variant_ids: list[int]
+    media_variant_urls: list[str] = []
     status: str
     created_at: datetime
     updated_at: Optional[datetime] = None

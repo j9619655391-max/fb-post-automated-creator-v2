@@ -13,6 +13,16 @@ class ContentPublishStatusResponse(BaseModel):
 
     model_config = ConfigDict(from_attributes=True)
 
+class ContentMediaResponse(BaseModel):
+    id: int
+    filename: str
+    mime_type: str
+    file_size: int
+    url: str
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ContentBase(BaseModel):
     """Base content schema."""
     title: str = Field(..., min_length=1, max_length=200)
@@ -49,6 +59,7 @@ class ContentResponse(ContentBase):
     schedule_meta_page_id: Optional[int] = None
     schedule_linkedin_account_id: Optional[int] = None
     media_id: Optional[int] = None
+    media: Optional[ContentMediaResponse] = None
     generated_by_ai: bool = False
     generation_job_id: Optional[int] = None
     risk_score: int = 0

@@ -126,6 +126,10 @@ export function refreshWorkspaceSource(orgId: number, sourceId: number): Promise
   return apiPost<WorkspaceSource>(`organizations/${orgId}/intelligence/sources/${sourceId}/refresh`);
 }
 
+export function reviewWorkspaceSource(orgId: number, sourceId: number, reviewStatus: 'pending' | 'approved' | 'rejected', reviewNote?: string): Promise<WorkspaceSource> {
+  return apiPost<WorkspaceSource>(`organizations/${orgId}/intelligence/sources/${sourceId}/review`, { review_status: reviewStatus, review_note: reviewNote });
+}
+
 export function refreshWorkspaceSources(orgId: number): Promise<{ refreshed_source_ids: number[]; errors: string[]; refreshed_count: number }> {
   return apiPost<{ refreshed_source_ids: number[]; errors: string[]; refreshed_count: number }>(`organizations/${orgId}/intelligence/refresh`);
 }

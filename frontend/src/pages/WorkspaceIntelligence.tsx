@@ -8,6 +8,7 @@ import {
   listContentOpportunities,
   refreshWorkspaceSource,
   refreshWorkspaceSources,
+  reviewWorkspaceSource,
   removeWorkspaceSource,
   saveWorkspaceProfile,
   type ContentOpportunity,
@@ -275,6 +276,22 @@ export default function WorkspaceIntelligence() {
     }
   }
 
+  async function handleReviewSource(sourceId: number, reviewStatus: 'pending' | 'approved' | 'rejected') {
+    if (!currentOrg) return;
+    setSaving(true);
+    setMessage('');
+    setError('');
+    try {
+      const reviewed = await reviewWorkspaceSource(currentOrg.id, sourceId, reviewStatus);
+      setIntelligence((current) => current ? { ...current, sources: current.sources.map((source) => source.id === sourceId ? reviewed : source), approved_source_count: current.sources.filter((source) => source.id === sourceId ? reviewStatus === 'approved' : source.review_status === 'approved').length } : current);
+      setMessage(reviewStatus === 'approved' ? 'Source approved for generation context.' : reviewStatus === 'rejected' ? 'Source rejected and excluded from generation context.' : 'Source kept pending review.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update source review status');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function handleRemoveSource(sourceId: number) {
     if (!currentOrg || !window.confirm('Remove this source from the workspace knowledge base?')) return;
     setSaving(true);
@@ -407,7 +424,8 @@ export default function WorkspaceIntelligence() {
           {loading && <p className="text-sm text-slate-500">Loading workspace sources...</p>}
           {!loading && intelligence?.sources.length === 0 && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-500">Add a website or authorized social source to start building verified context.</p>}
           {intelligence?.sources.map((source) => (
-            <div key={source.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700">{source.source_type.replace('_', ' ')}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase text-slate-600">{source.review_status}</span></div><h3 className="mt-2 font-semibold text-slate-900">{source.title || source.url || 'Manual source'}</h3><p className="mt-1 break-all text-xs text-slate-500">{source.url || source.excerpt || 'No URL; add content through the source API.'}</p>{source.last_fetched_at && <p className="mt-2 text-xs text-slate-400">Last fetched {new Date(source.last_fetched_at).toLocaleString()}</p>}</div><div className="flex shrink-0 gap-2"><button type="button" disabled={saving || source.source_type !== 'website'} onClick={() => handleRefreshSource(source.id)} className="rounded-lg border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">Refresh</button><button type="button" disabled={saving} onClick={() => handleRemoveSource(source.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-40">Remove</button></div></div>{source.excerpt && <p className="mt-3 line-clamp-3 text-sm text-slate-600">{source.excerpt}</p>}</div>
+            <div key={source.id} className="rounded-xl border border-slate-200 p-4"><div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between"><div><div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-black uppercase tracking-wider text-indigo-700">{source.source_type.replace('_', ' ')}</span><span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase text-slate-600">{source.review_status}</span></div><h3 className="mt-2 font-semibold text-slate-900">{source.title || source.url || 'Manual source'}</h3><p className="mt-1 break-all text-xs text-slate-500">{source.url || source.excerpt || 'No URL; add content through the source API.'}</p>{source.last_fetched_at && <p className="mt-2 text-xs text-slate-400">Last fetched {new Date(source.last_fetched_at).toLocaleString()}</p>}</div><div className="flex shrink-0 flex-wrap justify-end gap-2"><button type="button" disabled={saving || source.source_type !== 'website'} onClick={() => handleRefreshSource(source.id)} className="rounded-lg border border-indigo-200 px-3 py-2 text-xs font-bold text-indigo-700 disabled:cursor-not-allowed disabled:opacity-40">Refresh</button><button type="button" disabled={saving || source.review_status === 'approved'} onClick={() => handleReviewSource(source.id, 'approved')} className="rounded-lg border border-emerald-200 px-3 py-2 text-xs font-bold text-emerald-700 disabled:opacity-40">Approve</button><button type="button" disabled={saving || source.review_status === 'rejected'} onClick={() => handleReviewSource(source.id, 'rejected')} className="rounded-lg border border-amber-200 px-3 py-2 text-xs font-bold text-amber-700 disabled:opacity-40">Reject</button><button type="button" disabled={saving} onClick={() => handleRemoveSource(source.id)} className="rounded-lg border border-red-200 px-3 py-2 text-xs font-bold text-red-600 disabled:opacity-40">Remove</button></div>
+</div>{source.excerpt && <p className="mt-3 line-clamp-3 text-sm text-slate-600">{source.excerpt}</p>}</div>
           ))}
         </div>
       </section>

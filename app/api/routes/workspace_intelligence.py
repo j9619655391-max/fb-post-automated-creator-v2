@@ -23,6 +23,7 @@ from app.schemas.workspace_intelligence import (
     WorkspaceProfileResponse,
     WorkspaceProfileUpsert,
     WorkspaceSourceCreate,
+    WorkspaceSourceReview,
     WorkspaceSourceResponse,
     ContentOpportunityResponse,
 )
@@ -306,6 +307,32 @@ def refresh_workspace_source(
         return _source_payload(refresh_website_source(db, source))
     except WorkspaceSourceRefreshError as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
+
+
+@router.post("/{org_id}/intelligence/sources/{source_id}/review", response_model=WorkspaceSourceResponse)
+def review_workspace_source(
+    org_id: int,
+    source_id: int,
+    payload: WorkspaceSourceReview,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    source = db.query(WorkspaceSource).filter(
+        WorkspaceSource.id == source_id,
+        WorkspaceSource.organization_id == org_id,
+        WorkspaceSource.is_active.is_(True),
+    ).first()
+    if source is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace source not found")
+    source.review_status = payload.review_status
+    if payload.review_note:
+        metadata = _json_dict(source.metadata_json)
+        metadata["review_note"] = payload.review_note
+        source.metadata_json = json.dumps(metadata, ensure_ascii=False)
+    db.commit()
+    db.refresh(source)
+    return _source_payload(source)
 
 
 @router.post("/{org_id}/intelligence/refresh")

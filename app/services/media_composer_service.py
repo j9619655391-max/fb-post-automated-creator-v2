@@ -301,6 +301,64 @@ def _local_path(media: Media) -> str:
 
 
 
+def compose_generated_text_variants(
+    db: Session,
+    *,
+    organization_id: int,
+    user_id: int,
+    theme_id: int | None = None,
+    template_family: str = "quote-card",
+    headline: str = "",
+    body: str = "",
+    cta: str = "",
+    website: str | None = None,
+    handle: str | None = None,
+    phone: str | None = None,
+    whatsapp: str | None = None,
+    location: str | None = None,
+) -> list[Media]:
+    """Create branded text-card variants when generation has no source photo."""
+    if template_family not in TEMPLATE_FAMILIES:
+        raise ValueError(f"Unsupported template family: {template_family}")
+    profile = db.query(WorkspaceProfile).filter(WorkspaceProfile.organization_id == organization_id).first()
+    theme = db.query(BrandTheme).filter(BrandTheme.id == theme_id, BrandTheme.organization_id == organization_id).first() if theme_id else None
+    logo = None
+    if profile and profile.logo_media_id:
+        logo_media = db.query(Media).filter(Media.id == profile.logo_media_id, Media.organization_id == organization_id).first()
+        if logo_media:
+            logo = Image.open(_local_path(logo_media))
+    settings = _theme_settings(profile, theme)
+    website = website or (profile.website_url if profile else None)
+    phone = phone or (profile.contact_phone if profile else None)
+    whatsapp = whatsapp or (profile.whatsapp_display_phone if profile else None)
+    location = location or None
+    variants: list[Media] = []
+    for platform, size in FORMAT_SIZES.items():
+        base = Image.new("RGB", size, settings["primary"])
+        rendered = _render_template(
+            base,
+            size,
+            family=template_family,
+            headline=headline,
+            body=body,
+            cta=cta,
+            website=website,
+            handle=handle,
+            phone=phone,
+            whatsapp=whatsapp,
+            location=location,
+            logo=logo,
+            settings=settings,
+        )
+        buffer = io.BytesIO()
+        rendered.save(buffer, format="PNG", optimize=True)
+        buffer.seek(0)
+        filename = f"{platform}-{template_family}-generated-{uuid.uuid4().hex}.png"
+        upload = UploadFile(filename=filename, file=buffer, headers=Headers({"content-type": "image/png"}))
+        variants.append(MediaService(db).save_upload(upload, user_id, organization_id))
+    return variants
+
+
 def compose_branded_variants(
     db: Session,
     *,

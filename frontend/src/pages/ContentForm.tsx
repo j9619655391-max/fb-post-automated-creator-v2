@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 
 const BUSINESS_OBJECTIVES = [
+  { value: 'service-showcase', label: 'Service showcase', guidance: 'Explain one verified service, solution, or offer and invite a qualified inquiry.' },
+  { value: 'case-study-results', label: 'Case study / results', guidance: 'Use an approved client story, project, or outcome without inventing metrics.' },
+  { value: 'educational-howto', label: 'Educational / how-to', guidance: 'Teach a practical idea connected to the selected business and its audience.' },
+  { value: 'industry-insights', label: 'Industry insight', guidance: 'Connect a verified trend, research point, or public source to the business context.' },
+  { value: 'client-story', label: 'Client story', guidance: 'Share an approved client/customer experience without inventing testimonials or outcomes.' },
+  { value: 'company-culture', label: 'Company / team', guidance: 'Show the people, process, or culture behind the business using approved facts.' },
   { value: 'product-showcase', label: 'Product showcase', guidance: 'Show a specific suit, garment, fabric, cut, embroidery, or design detail and invite an inquiry.' },
   { value: 'collection-launch', label: 'Collection launch', guidance: 'Introduce a new collection or seasonal line with a clear fashion-led story and booking CTA.' },
   { value: 'bridal-occasion', label: 'Bridal & occasion wear', guidance: 'Highlight bridal, partywear, ceremony, or event styling with consultation and custom-order intent.' },
@@ -20,7 +26,7 @@ const VISUAL_TEMPLATES = [
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createContent, updateContent, getContent } from '../api/content';
-import { getCategories, generateThemes, type ContentCategory } from '../api/vce';
+import { getCategories, getRecommendedCategory, generateThemes, type ContentCategory } from '../api/vce';
 import { listPages, type MetaPage } from '../api/metaPages';
 import { listLinkedInAccounts, type LinkedInAccount } from '../api/platforms';
 import { uploadMedia } from '../api/media';
@@ -45,6 +51,8 @@ export default function ContentForm() {
   // Automation: category → themes → load into form (new content only)
   const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategory | null>(null);
+  const [categoryReason, setCategoryReason] = useState('');
+  const [categoryEvidence, setCategoryEvidence] = useState<string[]>([]);
 
   const [businessObjective, setBusinessObjective] = useState('product-showcase');
   const [visualTemplate, setVisualTemplate] = useState('fashion-editorial');
@@ -78,9 +86,7 @@ export default function ContentForm() {
         setTitle(c.title);
         setBody(c.body);
         setMediaId(c.media_id || null);
-        // If content has media_id, we should ideally fetch its URL if not provided by response
-        // In our case ContentResponse includes media_id, but maybe not the URL yet? 
-        // Our backend ContentResponse schema shows media_id: Optional[int].
+        setMediaUrl(c.media?.url || null);
         setLoaded(true);
       })
       .catch(() => { setError('Content not found'); setLoaded(true); });
@@ -88,18 +94,48 @@ export default function ContentForm() {
 
   // Load categories and pages when creating new content
   useEffect(() => {
-    if (isEdit || !isAuthenticated) return;
-    getCategories().then((items) => {
+    if (isEdit || !isAuthenticated || !currentOrg?.id) return;
+    let cancelled = false;
+    setSelectedCategory(null);
+    setCategoryReason('Loading workspace recommendation...');
+    setCategoryEvidence([]);
+    Promise.all([getCategories(currentOrg.id), getRecommendedCategory(currentOrg.id)])
+      .then(([items, recommendation]) => {
+        if (cancelled) return;
+        setCategories(items);
+        setSelectedCategory(recommendation.category);
+        setCategoryReason(recommendation.reason || 'Recommended from this workspace profile and source context.');
+        setCategoryEvidence(recommendation.evidence_terms || []);
+        const objectiveByCategory: Record<string, string> = {
+          'product-showcase': 'product-showcase',
+          'collection-launch': 'collection-launch',
+          'bridal-occasion': 'bridal-occasion',
+          'styling-tips': 'styling-tips',
+          'fabric-craft': 'fabric-craft',
+          'customer-story': 'customer-story',
+          'offer-booking': 'offer-booking',
+          'service-showcase': 'service-showcase',
+          'case-study-results': 'case-study-results',
+          'educational-howto': 'educational-howto',
+          'industry-insights': 'industry-insights',
+          'client-story': 'client-story',
+          'company-culture': 'company-culture',
+        };
+        const suggestedObjective = objectiveByCategory[recommendation.category.slug];
+        if (suggestedObjective) setBusinessObjective(suggestedObjective);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCategories([]);
+          setSelectedCategory(null);
+          setCategoryReason('Could not load the workspace category recommendation.');
+        }
+      });
 
-      setCategories(items);
-      if (!selectedCategory) {
-        setSelectedCategory(items.find((item) => item.slug === 'product-showcase') ?? null);
-      }
-    }).catch(() => setCategories([]));
-
-    listPages(currentOrg?.id).then(setPages).catch(() => setPages([]));
+    listPages(currentOrg.id).then(setPages).catch(() => setPages([]));
     listLinkedInAccounts().then(setLinkedinAccounts).catch(() => setLinkedinAccounts([]));
-  }, [isEdit, isAuthenticated, currentOrg]);
+    return () => { cancelled = true; };
+  }, [isEdit, isAuthenticated, currentOrg?.id]);
 
   // Auto-generate themes when category is selected (new content only)
   useEffect(() => {
@@ -278,6 +314,7 @@ export default function ContentForm() {
                 ))}
               </select>
                             {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Restart the local app once to seed business-aware fashion categories.</p>}
+              {selectedCategory && <p className="mb-3 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs text-indigo-800"><strong>Workspace recommendation:</strong> {categoryReason}{categoryEvidence.length > 0 && ` Evidence: ${categoryEvidence.join(', ')}.`}</p>}
               <div className="grid md:grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-700 mb-1">Business objective</label>
@@ -571,7 +608,7 @@ export default function ContentForm() {
                         : (schedulePageId ? pages.find(p => p.id === schedulePageId)?.page_name : 'Drafting Page')}
                     </div>
                     <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                      Sponsored · <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zM4.5 7.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5z" /></svg>
+                      Draft preview · <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Organic post</span>
                     </div>
                   </div>
                 </div>
@@ -631,7 +668,7 @@ export default function ContentForm() {
               <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-200/20 rounded-full blur-2xl group-hover:bg-emerald-300/30 transition-all duration-700"></div>
               <p className="font-black uppercase tracking-widest text-[10px] text-emerald-600 mb-2">Editor Intelligence</p>
               <p className="font-medium relative z-10">
-                Your post will be published exactly as shown in this preview. Use <span className="text-indigo-600 font-bold">"Create with AI"</span> to generate high-engagement hooks and formatting optimized for Meta's algorithm.
+                This is an organic post draft preview. It will not publish until you save it and pass the existing human approval workflow. Use <span className="text-indigo-600 font-bold">"Create with AI"</span> to generate business-aware copy for the selected workspace.
               </p>
             </div>
           </div>

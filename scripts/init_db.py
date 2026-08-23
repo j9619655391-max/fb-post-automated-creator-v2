@@ -36,6 +36,12 @@ def _seed_categories(db) -> None:
         ("Offer & Booking", "offer-booking", 8),
         ("Fashion Quote", "fashion-quote", 9),
         ("Seasonal / Festival", "seasonal-festival", 10),
+        ("Service Showcase", "service-showcase", 20),
+        ("Case Study & Results", "case-study-results", 21),
+        ("Educational / How-to", "educational-howto", 22),
+        ("Industry Insights", "industry-insights", 23),
+        ("Client Story", "client-story", 24),
+        ("Company & Team", "company-culture", 25),
         ("Motivation", "motivation", 90),
         ("Tips", "tips", 91),
         ("Reflection", "reflection", 92),
@@ -57,6 +63,12 @@ def _seed_categories(db) -> None:
         ("Fashion quote", "{hook}\\n\\n{body}\\n\\n{cta}", "A thought for your wardrobe:", "Follow for more fashion inspiration.", "fashion-quote"),
         ("Hook + Body + CTA", "{hook}\\n\\n{body}\\n\\n{cta}", "Here's something to think about.", "What would you add?", "motivation"),
         ("Question hook", "{hook}\\n\\n{body}\\n\\n{cta}", "Did you know?", "Share if this helped.", "tips"),
+        ("Service showcase", "{hook}\\n\\n{body}\\n\\n{cta}", "A practical solution for your next business goal:", "Talk to us about your requirements.", "service-showcase"),
+        ("Case study result", "{hook}\\n\\n{body}\\n\\n{cta}", "What changed for this client:", "Ask us how we can help.", "case-study-results"),
+        ("Educational how-to", "{hook}\\n\\n{body}\\n\\n{cta}", "A useful idea for your work:", "Save this for later.", "educational-howto"),
+        ("Industry insight", "{hook}\\n\\n{body}\\n\\n{cta}", "What this means for businesses today:", "Share your perspective.", "industry-insights"),
+        ("Client story", "{hook}\\n\\n{body}\\n\\n{cta}", "A client perspective:", "Message us to discuss your goal.", "client-story"),
+        ("Company culture", "{hook}\\n\\n{body}\\n\\n{cta}", "Behind the work:", "Meet the team behind the solution.", "company-culture"),
     ]
     for name, body_template, default_hook, default_cta, slug in hook_definitions:
         if name in existing_hooks:

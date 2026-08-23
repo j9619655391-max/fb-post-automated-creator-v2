@@ -23,6 +23,11 @@ def facebook_login(
         raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
 
+@router.get("/login", include_in_schema=False)
+def deprecated_facebook_login_get():
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Use POST /auth/facebook/login")
+
+
 @router.get("/callback")
 def facebook_callback(
     code: str,

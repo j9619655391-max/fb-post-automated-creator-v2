@@ -30,8 +30,10 @@ class HookTemplateResponse(BaseModel):
 
 
 class SuggestedCategoryResponse(BaseModel):
-    """Today's suggested category (rotation); advisory only."""
+    """Workspace-aware category recommendation; advisory only."""
     category: ContentCategoryResponse
+    reason: Optional[str] = None
+    evidence_terms: list[str] = []
     advisory_only: bool = True
 
 

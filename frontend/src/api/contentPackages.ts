@@ -13,8 +13,10 @@ export interface ContentPackage {
   caption: string;
   cta?: string | null;
   hashtags: string[];
+  tags: string[];
   source_urls: string[];
   media_variant_ids: number[];
+  media_variant_urls?: string[];
   status: string;
   created_at: string;
   updated_at?: string | null;

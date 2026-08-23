@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getContent, submitForApproval, approveContent, deleteContent, publishToFacebook, publishToLinkedIn, type Content } from '../api/content';
+import { getContent, listContentPackages, submitForApproval, approveContent, deleteContent, publishToFacebook, publishToLinkedIn, type Content } from '../api/content';
+import type { ContentPackage } from '../api/contentPackages';
 import { listPages, type MetaPage } from '../api/metaPages';
 import { listLinkedInAccounts, type LinkedInAccount } from '../api/platforms';
 
@@ -10,6 +11,7 @@ export default function ContentDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [content, setContent] = useState<Content | null>(null);
+  const [packages, setPackages] = useState<ContentPackage[]>([]);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [approveComment, setApproveComment] = useState('');
@@ -30,6 +32,16 @@ export default function ContentDetail() {
     listPages().then(setPages).catch(() => setPages([]));
     listLinkedInAccounts().then(setLinkedinAccounts).catch(() => setLinkedinAccounts([]));
   }, [isAuthenticated]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !id || !content?.organization_id) {
+      setPackages([]);
+      return;
+    }
+    listContentPackages(parseInt(id, 10), content.organization_id)
+      .then(setPackages)
+      .catch(() => setPackages([]));
+  }, [isAuthenticated, id, content?.organization_id]);
 
   async function handleSubmit() {
     if (!isAuthenticated || !id || !content) return;
@@ -144,6 +156,20 @@ export default function ContentDetail() {
           {content.publish_statuses?.length > 0 && ` · Published to ${content.publish_statuses.filter(s => s.status === 'posted').length} targets`}
         </p>
       </div>
+      {packages.length > 0 && (
+        <section className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-5">
+          <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-bold text-indigo-950">Complete social post package</h2><p className="mt-1 text-sm text-indigo-800">The image and the text that accompanies it are stored together for review. Publishing is still blocked until approval.</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{packages.length} platforms</span></div>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            {packages.map((post) => (
+              <article key={post.id} className="overflow-hidden rounded-xl border border-indigo-100 bg-white">
+                {post.media_variant_urls?.[0] ? <img src={post.media_variant_urls[0]} alt={`${post.platform} generated creative`} className="aspect-square w-full object-cover bg-slate-100" /> : <div className="flex aspect-square items-center justify-center bg-slate-100"><p className="px-4 text-center text-xs text-slate-500">Image preview is not available for this package.</p></div>}
+                <div className="space-y-2 p-4"><div className="flex items-center justify-between"><span className="text-xs font-black uppercase tracking-widest text-indigo-700">{post.platform}</span><span className="text-[11px] font-semibold text-slate-500">{post.status}</span></div><p className="text-sm font-semibold text-slate-900">{post.headline}</p><p className="whitespace-pre-wrap text-xs text-slate-700">{post.caption}</p>{post.cta && <p className="text-xs font-bold text-indigo-700">CTA: {post.cta}</p>}<p className="break-words text-xs text-slate-500">{post.hashtags.join(' ')}</p>{post.tags.length > 0 && <p className="break-words text-xs text-slate-500">Tags: {post.tags.join(', ')}</p>}</div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="flex flex-wrap gap-2">
         {canEdit && (
           <Link to={'/content/' + id + '/edit'} className="rounded-lg border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50">

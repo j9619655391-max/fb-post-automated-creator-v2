@@ -66,6 +66,11 @@ class WorkspaceSourceCreate(BaseModel):
     review_status: str = Field(default="pending", pattern="^(pending|approved|rejected)$")
 
 
+class WorkspaceSourceReview(BaseModel):
+    review_status: str = Field(pattern="^(pending|approved|rejected)$")
+    review_note: Optional[str] = Field(default=None, max_length=2000)
+
+
 class WorkspaceSourceResponse(WorkspaceSourceCreate):
     id: int
     organization_id: int
