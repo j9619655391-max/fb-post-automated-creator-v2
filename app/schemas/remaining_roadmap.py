@@ -94,6 +94,7 @@ class BrandedMediaComposeRequest(BaseModel):
     source_media_id: int = Field(ge=1)
     theme_id: Optional[int] = Field(default=None, ge=1)
     template_family: str = Field(default="fashion-editorial", pattern="^(fashion-editorial|product-catalog|quote-card|collection-story)$")
+    background_preset: str = Field(default="midnight-aurora", pattern="^(midnight-aurora|warm-paper|rose-editorial|sunset-glow|minimal-ink|neon-night)$")
     headline: str = Field(default="", max_length=240)
     body: str = Field(default="", max_length=3000)
     cta: str = Field(default="", max_length=300)

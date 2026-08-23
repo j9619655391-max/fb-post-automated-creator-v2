@@ -72,6 +72,7 @@ def generate_draft(
             category_id=request.category_id,
             category_name=request.category_name,
             extra_instruction=request.extra_instruction,
+            background_preset=request.background_preset,
             organization_id=request.organization_id,
             idempotency_key=request.idempotency_key,
         )

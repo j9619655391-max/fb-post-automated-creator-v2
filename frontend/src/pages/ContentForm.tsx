@@ -27,6 +27,17 @@ const VISUAL_TEMPLATES = [
   { value: 'quote-card', label: 'Quote card', guidance: 'Large quote hierarchy with quotation mark, highlighted keywords, logo/handle, and website or WhatsApp footer.' },
   { value: 'collection-story', label: 'Collection story', guidance: 'Multi-zone composition for collection name, inspiration, hero image, design detail, and consultation CTA.' },
 ];
+
+type QuoteBackgroundValue = 'midnight-aurora' | 'warm-paper' | 'rose-editorial' | 'sunset-glow' | 'minimal-ink' | 'neon-night';
+
+const QUOTE_BACKGROUNDS = [
+  { value: 'midnight-aurora', label: 'Midnight Aurora', description: 'Deep navy, soft glow, gold quote mark', swatch: 'linear-gradient(135deg,#111827,#030712 65%,#ec4899)' },
+  { value: 'warm-paper', label: 'Warm Paper', description: 'Cream paper, terracotta accent, healing tone', swatch: 'linear-gradient(135deg,#fff7ed,#fed7aa 58%,#c2410c)' },
+  { value: 'rose-editorial', label: 'Rose Editorial', description: 'Plum field, rose panel, premium emotion', swatch: 'linear-gradient(135deg,#4a044e,#831843 62%,#f9a8d4)' },
+  { value: 'sunset-glow', label: 'Sunset Glow', description: 'Coral, saffron and plum motivation', swatch: 'linear-gradient(135deg,#fb7185,#f59e0b 52%,#581c87)' },
+  { value: 'minimal-ink', label: 'Minimal Ink', description: 'Off-white, dark serif, generous whitespace', swatch: 'linear-gradient(135deg,#fafaf9,#ffffff 60%,#f59e0b)' },
+  { value: 'neon-night', label: 'Neon Night', description: 'Charcoal with cyan and pink geometry', swatch: 'linear-gradient(135deg,#111827,#06b6d4 55%,#ec4899)' },
+] as const;
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createContent, updateContent, getContent } from '../api/content';
@@ -60,6 +71,9 @@ export default function ContentForm() {
 
   const [businessObjective, setBusinessObjective] = useState('product-showcase');
   const [visualTemplate, setVisualTemplate] = useState('fashion-editorial');
+  const [backgroundPreset, setBackgroundPreset] = useState<QuoteBackgroundValue>('midnight-aurora');
+  const [confirmGenerationOpen, setConfirmGenerationOpen] = useState(false);
+  const [generationConfirmed, setGenerationConfirmed] = useState(false);
   const [themes, setThemes] = useState<string[]>([]);
 
   const [themesLoading, setThemesLoading] = useState(false);
@@ -139,6 +153,14 @@ export default function ContentForm() {
         if (suggestedObjective) setBusinessObjective(suggestedObjective);
         const suggestedTemplate = templateByCategory[recommendation.category.slug];
         if (suggestedTemplate) setVisualTemplate(suggestedTemplate);
+        const backgroundByCategory: Record<string, QuoteBackgroundValue> = {
+          'love-quotes': 'rose-editorial',
+          'truth-quotes': 'minimal-ink',
+          'motivational-quotes': 'sunset-glow',
+          'pain-quotes': 'warm-paper',
+        };
+        const suggestedBackground = backgroundByCategory[recommendation.category.slug];
+        if (suggestedBackground) setBackgroundPreset(suggestedBackground);
       })
       .catch(() => {
         if (!cancelled) {
@@ -202,19 +224,27 @@ export default function ContentForm() {
     }
   }
 
-  async function handleGenerateDraft() {
+  function handleGenerateDraft() {
     if (isEdit) return;
+    setError('');
+    setGenerationConfirmed(false);
+    setConfirmGenerationOpen(true);
+  }
+
+  async function confirmAndGenerateDraft() {
+    if (isEdit || !generationConfirmed) return;
     setGeneratingDraft(true);
     setError('');
     try {
       const objective = BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective);
-
       const template = VISUAL_TEMPLATES.find((item) => item.value === visualTemplate);
+      const background = QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset);
       const generated = await generateDraft({
         category_id: selectedCategory?.id,
         category_name: selectedCategory?.name,
         organization_id: currentOrg?.id,
-        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Visual template: ${template?.guidance ?? visualTemplate}. Follow the selected workspace language and category. Keep the content image-led and do not switch to unrelated generic content.`,
+        background_preset: backgroundPreset,
+        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Creative template: ${template?.guidance ?? visualTemplate}. Background direction: ${background?.description ?? backgroundPreset}. Follow the selected workspace language and category. Keep the content image-led, Hinglish where configured, and do not switch to unrelated generic content.`,
       });
 
       navigate(`/content/${generated.id}/edit`, { replace: true });
@@ -222,6 +252,7 @@ export default function ContentForm() {
       setError(err instanceof Error ? err.message : 'Could not generate a draft');
     } finally {
       setGeneratingDraft(false);
+      setConfirmGenerationOpen(false);
     }
   }
 
@@ -355,17 +386,43 @@ export default function ContentForm() {
                   <p className="text-xs text-slate-500 mt-1">{VISUAL_TEMPLATES.find((item) => item.value === visualTemplate)?.guidance}</p>
                 </div>
               </div>
+              {visualTemplate === 'quote-card' && (
+                <div className="mb-4 rounded-xl border border-indigo-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">Choose background template</h3>
+                      <p className="text-xs text-slate-500 mt-1">Preview and approve the visual direction before any image or draft is created.</p>
+                    </div>
+                    <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700">{QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label}</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {QUOTE_BACKGROUNDS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setBackgroundPreset(item.value)}
+                        className={`overflow-hidden rounded-lg border text-left transition ${backgroundPreset === item.value ? 'border-indigo-600 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+                      >
+                        <span className="block h-12" style={{ background: item.swatch }} />
+                        <span className="block px-2 py-1.5">
+                          <span className="block text-xs font-semibold text-slate-900">{item.label}</span>
+                          <span className="block text-[10px] leading-tight text-slate-500 mt-0.5">{item.description}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2 mb-3">
-
                 <button
                   type="button"
                   onClick={handleGenerateDraft}
                   disabled={generatingDraft || !isAuthenticated}
                   className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {generatingDraft ? 'Generating draft...' : 'Generate business draft'}
-
+                  {generatingDraft ? 'Generating draft...' : 'Review & confirm generation'}
                 </button>
+                <span className="self-center text-xs text-slate-500">No image or draft is created until confirmation.</span>
               </div>
               {themesLoading && <p className="text-indigo-600 text-sm font-medium mb-2">Generating themes...</p>}
               {themeError && <p className="text-amber-700 text-sm mb-2">{themeError}</p>}
@@ -386,6 +443,27 @@ export default function ContentForm() {
                   </div>
                 </>
               )}
+            </div>
+          )}
+
+          {confirmGenerationOpen && (
+            <div className="mb-8 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-generation-title">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Final creative check</p>
+                  <h2 id="confirm-generation-title" className="mt-1 text-lg font-semibold text-amber-950">Confirm before creating the image</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-amber-900">This will create exactly one unscheduled draft for <strong>{currentOrg?.name || 'the selected workspace'}</strong> using <strong>{selectedCategory?.name || 'the selected category'}</strong>, <strong>{QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label}</strong>, and the <strong>{visualTemplate}</strong> layout. It will not publish, schedule, boost, send to Telegram, or submit for approval.</p>
+                </div>
+                <button type="button" onClick={() => setConfirmGenerationOpen(false)} className="rounded-md px-2 py-1 text-amber-800 hover:bg-amber-100" aria-label="Close confirmation">Close</button>
+              </div>
+              <label className="mt-4 flex items-start gap-2 text-sm text-amber-950">
+                <input type="checkbox" checked={generationConfirmed} onChange={(event) => setGenerationConfirmed(event.target.checked)} className="mt-1" />
+                <span>I reviewed the category, quote style, background template, and language direction. Create one draft image package now.</span>
+              </label>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" onClick={confirmAndGenerateDraft} disabled={!generationConfirmed || generatingDraft} className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50">{generatingDraft ? 'Creating one draft...' : 'Confirm & create one draft'}</button>
+                <button type="button" onClick={() => setConfirmGenerationOpen(false)} className="rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100">Cancel — create nothing</button>
+              </div>
             </div>
           )}
 

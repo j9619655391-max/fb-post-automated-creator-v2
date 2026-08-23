@@ -39,3 +39,35 @@ def test_all_template_families_render_platform_variants():
             assert rendered.size == size
             assert rendered.mode == "RGB"
             assert rendered.getbbox() is not None
+
+
+def test_quote_background_presets_are_distinct_and_fit_long_hinglish_copy():
+    from hashlib import sha256
+    from app.services.media_composer_service import QUOTE_BACKGROUND_PRESETS
+
+    original = Image.new("RGB", (1200, 800), (120, 80, 60))
+    signatures = set()
+    for preset in QUOTE_BACKGROUND_PRESETS:
+        rendered = _render_template(
+            original,
+            (1200, 630),
+            family="quote-card",
+            background_preset=preset,
+            headline="Sach Se Bhaagna Nahi",
+            body="Jo dil ko sach lagta hai, usey kehne ki himmat rakho. Apna sach likho aur share karo!",
+            cta="Agar dil ko laga, share karo.",
+            website=None,
+            handle=None,
+            phone=None,
+            whatsapp=None,
+            location=None,
+            brand_label="Love, Truth, Motivational, Pain Quotes",
+            logo=None,
+            settings=_settings(),
+        )
+        signatures.add(sha256(rendered.tobytes()).hexdigest())
+        assert rendered.size == (1200, 630)
+        assert rendered.mode == "RGB"
+        assert rendered.getbbox() is not None
+
+    assert len(signatures) == len(QUOTE_BACKGROUND_PRESETS)

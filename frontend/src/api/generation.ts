@@ -16,6 +16,7 @@ export interface GenerateDraftRequest {
   category_id?: number;
   category_name?: string;
   extra_instruction?: string;
+  background_preset?: 'midnight-aurora' | 'warm-paper' | 'rose-editorial' | 'sunset-glow' | 'minimal-ink' | 'neon-night';
   organization_id?: number;
   idempotency_key?: string;
 }

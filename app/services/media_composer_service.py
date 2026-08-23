@@ -31,6 +31,91 @@ FORMAT_SIZES = {
     "linkedin": (1200, 627),
 }
 TEMPLATE_FAMILIES = {"fashion-editorial", "product-catalog", "quote-card", "collection-story"}
+QUOTE_BACKGROUND_PRESETS = {
+    "midnight-aurora": "Deep midnight field with soft aurora glow",
+    "warm-paper": "Warm paper field with terracotta editorial accents",
+    "rose-editorial": "Plum field with asymmetric rose editorial panel",
+    "sunset-glow": "Coral, saffron, and plum diagonal glow",
+    "minimal-ink": "Off-white minimal ink layout with one accent rule",
+    "neon-night": "Charcoal field with electric cyan and pink geometry",
+}
+
+
+def _blend_color(first: tuple[int, int, int], second: tuple[int, int, int], ratio: float) -> tuple[int, int, int]:
+    ratio = max(0.0, min(1.0, ratio))
+    return tuple(int(a + (b - a) * ratio) for a, b in zip(first, second))  # type: ignore[return-value]
+
+
+def _linear_gradient(size: tuple[int, int], start: tuple[int, int, int], end: tuple[int, int, int], diagonal: bool = False) -> Image.Image:
+    image = Image.new("RGB", size, start)
+    draw = ImageDraw.Draw(image)
+    width, height = size
+    if diagonal:
+        for x in range(width):
+            ratio = x / max(1, width - 1)
+            draw.line((x, 0, x, height), fill=_blend_color(start, end, ratio))
+    else:
+        for y in range(height):
+            ratio = y / max(1, height - 1)
+            draw.line((0, y, width, y), fill=_blend_color(start, end, ratio))
+    return image
+
+
+def _apply_quote_background(
+    canvas: Image.Image,
+    preset: str,
+    primary: tuple[int, int, int],
+    surface: tuple[int, int, int],
+    accent: tuple[int, int, int],
+    highlight: tuple[int, int, int],
+) -> Image.Image:
+    """Paint a distinct, text-safe quote background without generating copy."""
+    preset = preset if preset in QUOTE_BACKGROUND_PRESETS else "midnight-aurora"
+    width, height = canvas.size
+    if preset == "warm-paper":
+        base = Image.new("RGB", (width, height), surface)
+        draw = ImageDraw.Draw(base, "RGBA")
+        for y in range(0, height, max(18, height // 28)):
+            draw.line((0, y, width, y), fill=(*primary, 12), width=1)
+        draw.ellipse((-int(width * 0.18), int(height * 0.58), int(width * 0.35), int(height * 1.15)), fill=(*accent, 34))
+        draw.rounded_rectangle((int(width * 0.055), int(height * 0.055), int(width * 0.945), int(height * 0.945)), radius=28, outline=(*accent, 210), width=max(3, width // 300))
+        return base
+    if preset == "rose-editorial":
+        base = _linear_gradient((width, height), primary, _blend_color(primary, highlight, 0.52))
+        draw = ImageDraw.Draw(base, "RGBA")
+        draw.rounded_rectangle((int(width * 0.06), int(height * 0.13), int(width * 0.94), int(height * 0.86)), radius=36, fill=(*highlight, 28), outline=(*surface, 170), width=max(2, width // 420))
+        draw.rectangle((0, 0, int(width * 0.16), height), fill=(*accent, 225))
+        draw.line((int(width * 0.20), int(height * 0.08), int(width * 0.92), int(height * 0.08)), fill=(*surface, 150), width=max(2, width // 420))
+        return base
+    if preset == "sunset-glow":
+        base = _linear_gradient((width, height), _blend_color(highlight, accent, 0.25), primary, diagonal=True)
+        draw = ImageDraw.Draw(base, "RGBA")
+        draw.ellipse((int(width * 0.58), -int(height * 0.30), int(width * 1.15), int(height * 0.42)), fill=(*surface, 30))
+        draw.ellipse((-int(width * 0.24), int(height * 0.70), int(width * 0.30), int(height * 1.25)), fill=(*accent, 60))
+        draw.rounded_rectangle((int(width * 0.07), int(height * 0.14), int(width * 0.93), int(height * 0.80)), radius=34, fill=(*surface, 218))
+        return base
+    if preset == "minimal-ink":
+        base = Image.new("RGB", (width, height), surface)
+        draw = ImageDraw.Draw(base, "RGBA")
+        draw.line((int(width * 0.08), int(height * 0.14), int(width * 0.92), int(height * 0.14)), fill=(*accent, 255), width=max(4, width // 180))
+        draw.line((int(width * 0.08), int(height * 0.86), int(width * 0.92), int(height * 0.86)), fill=(*primary, 180), width=max(2, width // 360))
+        draw.ellipse((int(width * 0.80), -int(height * 0.16), int(width * 1.12), int(height * 0.18)), fill=(*highlight, 35))
+        return base
+    if preset == "neon-night":
+        base = Image.new("RGB", (width, height), _blend_color(primary, (3, 7, 18), 0.62))
+        draw = ImageDraw.Draw(base, "RGBA")
+        draw.line((0, int(height * 0.86), int(width * 0.28), 0), fill=(*accent, 230), width=max(5, width // 180))
+        draw.line((int(width * 0.72), height, width, int(height * 0.16)), fill=(*highlight, 230), width=max(5, width // 180))
+        draw.polygon([(int(width * 0.72), 0), (width, 0), (width, int(height * 0.22))], fill=(*accent, 35))
+        draw.polygon([(0, int(height * 0.74)), (0, height), (int(width * 0.28), height)], fill=(*highlight, 28))
+        return base
+    # midnight-aurora: keep the strongest contrast for truth and pain quotes.
+    base = _linear_gradient((width, height), _blend_color(primary, (3, 7, 18), 0.35), (3, 7, 18))
+    glow = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(glow, "RGBA")
+    draw.ellipse((int(width * 0.60), -int(height * 0.22), int(width * 1.18), int(height * 0.48)), fill=(*highlight, 38))
+    draw.ellipse((-int(width * 0.18), int(height * 0.62), int(width * 0.46), int(height * 1.18)), fill=(*accent, 24))
+    return Image.alpha_composite(base.convert("RGBA"), glow).convert("RGB")
 
 
 
@@ -154,6 +239,27 @@ def _text_box(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, m
     return wrapped, box[2] - box[0], box[3] - box[1]
 
 
+def _fit_quote_font(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    preferences: dict[str, Any],
+    max_width: int,
+    max_height: int,
+    start_size: int,
+) -> tuple[ImageFont.ImageFont, str, int]:
+    """Choose the largest quote font that fits the safe text area."""
+    size = start_size
+    while size >= 34:
+        font = _font(preferences, "quote", size, italic=True)
+        wrapped, _, height = _text_box(draw, text, font, max_width, spacing=max(8, size // 6))
+        if height <= max_height:
+            return font, wrapped, max(8, size // 6)
+        size -= 4
+    font = _font(preferences, "quote", 34, italic=True)
+    wrapped, _, height = _text_box(draw, text, font, max_width, spacing=8)
+    return font, wrapped, 8
+
+
 
 def _place_logo(canvas: Image.Image, logo: Image.Image | None, position: str) -> Image.Image:
     if logo is None:
@@ -206,6 +312,7 @@ def _render_template(
     size: tuple[int, int],
     *,
     family: str,
+    background_preset: str = "midnight-aurora",
     headline: str,
     body: str,
     cta: str,
@@ -233,12 +340,19 @@ def _render_template(
     quote_font = _font(typography, "quote", max(34, int(size[0] * 0.06)), italic=family == "quote-card")
 
     if family == "quote-card":
-        canvas = _draw_gradient_overlay(canvas, 20, 195)
+        canvas = _apply_quote_background(canvas, background_preset, primary, surface, accent, highlight)
         draw = ImageDraw.Draw(canvas, "RGBA")
         _rounded_border(draw, size, highlight, width=max(3, size[0] // 300))
         draw.text((margin, margin - 6), "“", font=_font(typography, "quote_mark", max(78, int(size[0] * 0.14))), fill=accent)
-        quote, _, quote_height = _text_box(draw, body or headline, quote_font, size[0] - margin * 2, spacing=12)
-        draw.multiline_text((size[0] // 2, int(size[1] * 0.49)), quote, font=quote_font, fill=surface, anchor="mm", align="center", spacing=12, stroke_width=1, stroke_fill=primary)
+        quote_font, quote, quote_spacing = _fit_quote_font(
+            draw,
+            body or headline,
+            typography,
+            size[0] - margin * 2,
+            int(size[1] * 0.45),
+            max(44, int(size[0] * 0.072)),
+        )
+        draw.multiline_text((size[0] // 2, int(size[1] * 0.48)), quote, font=quote_font, fill=surface, anchor="mm", align="center", spacing=quote_spacing, stroke_width=1, stroke_fill=primary)
         if headline and headline != body:
             draw.text((size[0] // 2, int(size[1] * 0.18)), headline.upper(), font=small, fill=accent, anchor="mm")
         if cta:
@@ -312,6 +426,7 @@ def compose_generated_text_variants(
     user_id: int,
     theme_id: int | None = None,
     template_family: str = "quote-card",
+    background_preset: str = "midnight-aurora",
     headline: str = "",
     body: str = "",
     cta: str = "",
@@ -324,6 +439,8 @@ def compose_generated_text_variants(
     """Create branded text-card variants when generation has no source photo."""
     if template_family not in TEMPLATE_FAMILIES:
         raise ValueError(f"Unsupported template family: {template_family}")
+    if background_preset not in QUOTE_BACKGROUND_PRESETS:
+        raise ValueError(f"Unsupported quote background preset: {background_preset}")
     profile = db.query(WorkspaceProfile).filter(WorkspaceProfile.organization_id == organization_id).first()
     theme = db.query(BrandTheme).filter(BrandTheme.id == theme_id, BrandTheme.organization_id == organization_id).first() if theme_id else None
     logo = None
@@ -345,6 +462,7 @@ def compose_generated_text_variants(
             base,
             size,
             family=template_family,
+            background_preset=background_preset,
             headline=headline,
             body=body,
             cta=cta,
@@ -374,6 +492,7 @@ def compose_branded_variants(
     source_media_id: int,
     theme_id: int | None = None,
     template_family: str = "fashion-editorial",
+    background_preset: str = "midnight-aurora",
     headline: str = "",
     body: str = "",
     cta: str = "",
@@ -386,6 +505,8 @@ def compose_branded_variants(
     """Create one exact-size stored PNG variant per platform using a named template."""
     if template_family not in TEMPLATE_FAMILIES:
         raise ValueError(f"Unsupported template family: {template_family}")
+    if background_preset not in QUOTE_BACKGROUND_PRESETS:
+        raise ValueError(f"Unsupported quote background preset: {background_preset}")
     source = db.query(Media).filter(Media.id == source_media_id, Media.organization_id == organization_id).first()
     if source is None:
         raise ValueError("Source media does not belong to this workspace")
@@ -411,6 +532,7 @@ def compose_branded_variants(
                 original,
                 size,
                 family=template_family,
+                background_preset=background_preset,
                 headline=headline,
                 body=body,
                 cta=cta,
