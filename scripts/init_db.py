@@ -42,6 +42,10 @@ def _seed_categories(db) -> None:
         ("Industry Insights", "industry-insights", 23),
         ("Client Story", "client-story", 24),
         ("Company & Team", "company-culture", 25),
+        ("Love Quotes", "love-quotes", 30),
+        ("Truth Quotes", "truth-quotes", 31),
+        ("Motivational Quotes", "motivational-quotes", 32),
+        ("Pain Quotes", "pain-quotes", 33),
         ("Motivation", "motivation", 90),
         ("Tips", "tips", 91),
         ("Reflection", "reflection", 92),
@@ -69,6 +73,10 @@ def _seed_categories(db) -> None:
         ("Industry insight", "{hook}\\n\\n{body}\\n\\n{cta}", "What this means for businesses today:", "Share your perspective.", "industry-insights"),
         ("Client story", "{hook}\\n\\n{body}\\n\\n{cta}", "A client perspective:", "Message us to discuss your goal.", "client-story"),
         ("Company culture", "{hook}\\n\\n{body}\\n\\n{cta}", "Behind the work:", "Meet the team behind the solution.", "company-culture"),
+        ("Hinglish Love Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Pyaar ki ek baat:", "Agar dil ko laga, kisi apne ke saath share karo.", "love-quotes"),
+        ("Hinglish Truth Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Zindagi ka sach:", "Aap is baat se agree karte ho?", "truth-quotes"),
+        ("Hinglish Motivation Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Aaj ka reminder:", "Save karo aur jab zaroorat ho tab dobara padho.", "motivational-quotes"),
+        ("Hinglish Pain Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Kabhi kabhi dard bhi kuch sikhata hai:", "Agar relate karte ho, apni feeling comment mein likho.", "pain-quotes"),
     ]
     for name, body_template, default_hook, default_cta, slug in hook_definitions:
         if name in existing_hooks:

@@ -15,6 +15,10 @@ const BUSINESS_OBJECTIVES = [
   { value: 'customer-story', label: 'Customer proof', guidance: 'Use an approved customer experience or testimonial angle without inventing a claim.' },
   { value: 'offer-booking', label: 'Offer / consultation booking', guidance: 'Drive WhatsApp, phone, website, or in-store consultation inquiries using only configured facts.' },
   { value: 'fashion-quote', label: 'Fashion quote card', guidance: 'Create an aspirational fashion quote tied to personal style, confidence, craftsmanship, or the brand story—not generic life motivation.' },
+  { value: 'love-quotes', label: 'Love quotes', guidance: 'Create a relatable Hinglish love quote for the image and a heartfelt caption without fake attributions.' },
+  { value: 'truth-quotes', label: 'Truth quotes', guidance: 'Create a concise Hinglish reality/truth quote with an honest, reflective caption.' },
+  { value: 'motivational-quotes', label: 'Motivational quotes', guidance: 'Create an uplifting Hinglish motivation quote with a practical, hopeful caption.' },
+  { value: 'pain-quotes', label: 'Pain quotes', guidance: 'Create an empathetic Hinglish pain/healing quote without glorifying harm or making a mental-health diagnosis.' },
 ];
 
 const VISUAL_TEMPLATES = [
@@ -120,9 +124,21 @@ export default function ContentForm() {
           'industry-insights': 'industry-insights',
           'client-story': 'client-story',
           'company-culture': 'company-culture',
+          'love-quotes': 'love-quotes',
+          'truth-quotes': 'truth-quotes',
+          'motivational-quotes': 'motivational-quotes',
+          'pain-quotes': 'pain-quotes',
+        };
+        const templateByCategory: Record<string, string> = {
+          'love-quotes': 'quote-card',
+          'truth-quotes': 'quote-card',
+          'motivational-quotes': 'quote-card',
+          'pain-quotes': 'quote-card',
         };
         const suggestedObjective = objectiveByCategory[recommendation.category.slug];
         if (suggestedObjective) setBusinessObjective(suggestedObjective);
+        const suggestedTemplate = templateByCategory[recommendation.category.slug];
+        if (suggestedTemplate) setVisualTemplate(suggestedTemplate);
       })
       .catch(() => {
         if (!cancelled) {
@@ -198,7 +214,7 @@ export default function ContentForm() {
         category_id: selectedCategory?.id,
         category_name: selectedCategory?.name,
         organization_id: currentOrg?.id,
-        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Visual template: ${template?.guidance ?? visualTemplate}. Never default to generic motivational content unless the objective explicitly asks for a fashion quote.`,
+        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Visual template: ${template?.guidance ?? visualTemplate}. Follow the selected workspace language and category. Keep the content image-led and do not switch to unrelated generic content.`,
       });
 
       navigate(`/content/${generated.id}/edit`, { replace: true });

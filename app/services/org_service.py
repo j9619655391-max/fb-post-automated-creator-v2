@@ -1,8 +1,16 @@
 """Service for managing Organizations and memberships."""
 from typing import List, Optional
 from sqlalchemy.orm import Session
+import json
+
 from app.models.organization import Organization, OrganizationMember, OrganizationRole
+from app.models.workspace_intelligence import WorkspaceProfile
 from app.services.audit_service import AuditService
+
+
+def _is_hinglish_quote_workspace(name: str, slug: str) -> bool:
+    signal = f"{name} {slug}".casefold()
+    return any(term in signal for term in ("love", "truth", "motivational", "pain", "quotes", "quote"))
 
 
 class OrgService:
@@ -22,6 +30,30 @@ class OrgService:
             role=OrganizationRole.OWNER
         )
         self.db.add(member)
+
+        if _is_hinglish_quote_workspace(name, slug):
+            self.db.add(WorkspaceProfile(
+                organization_id=org.id,
+                business_description=(
+                    "A social media quote page sharing Love, Truth, Motivational, and Pain quotes "
+                    "in natural Hinglish using Roman Hindi and English."
+                ),
+                mission="Make relatable emotions and life lessons easy to feel and share.",
+                tagline="Dil ki baat, Hinglish alfaaz mein.",
+                industry="Hinglish quotes and digital content",
+                services_json=json.dumps(["Hinglish quote content", "Branded social media image posts"]),
+                products_json=json.dumps(["Love quotes", "Truth quotes", "Motivational quotes", "Pain quotes"]),
+                target_audience="People who connect with relatable love, reality, motivation, healing, and pain content.",
+                brand_voice="Emotional, relatable, concise, poetic, honest, and never preachy.",
+                tone="Warm, heartfelt, reflective, hopeful, and authentic.",
+                visual_style="Image-led quote cards with strong text-safe areas, expressive photography or gradients, bold hierarchy, and a consistent branded footer.",
+                brand_colors_json=json.dumps(["#111827", "#F59E0B", "#F8FAFC", "#EC4899"]),
+                font_preferences_json=json.dumps(["DejaVu Sans", "DejaVu Serif"]),
+                preferred_content_formats_json=json.dumps(["branded quote image", "square social card", "carousel quote story"]),
+                keywords_json=json.dumps(["love", "truth", "motivation", "pain", "healing", "dard", "pyaar", "sach", "zindagi"]),
+                preferred_languages_json=json.dumps(["Hinglish", "Roman Hindi", "English"]),
+                approval_required=True,
+            ))
         
         self.audit.log_action(
             db=self.db,

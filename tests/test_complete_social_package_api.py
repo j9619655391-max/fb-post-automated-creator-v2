@@ -57,3 +57,42 @@ def test_compose_package_returns_image_and_social_copy_per_platform(
     assert all(package["tags"] == ["@kashverafashion", "style community"] for package in packages)
     assert all(package["status"] == "draft" for package in packages)
     assert len({package["content_id"] for package in packages}) == 1
+
+
+def test_compose_package_supports_explicit_branded_text_card_without_source(
+    client, api, auth_headers
+):
+    organization_response = client.post(
+        f"{api}/organizations/",
+        headers=auth_headers,
+        json={"name": "Hinglish Quote Workspace", "slug": "hinglish-quote-workspace"},
+    )
+    assert organization_response.status_code == 201, organization_response.text
+    organization_id = organization_response.json()["id"]
+
+    response = client.post(
+        f"{api}/organizations/{organization_id}/media/compose-package",
+        headers=auth_headers,
+        json={
+            "use_branded_text_card": True,
+            "template_family": "quote-card",
+            "headline": "Sach Se Bhaagna Nahi",
+            "body": "Jo dil ko sach lagta hai, usey kehne ki himmat rakho.",
+            "caption": "Kabhi kabhi sach kadwa hota hai, par wahi humein asli raasta dikhata hai.",
+            "cta": "Agar relate karte ho, share karo.",
+            "hashtags": ["hinglishquotes", "dilkibaat"],
+            "tags": ["quote community"],
+            "platforms": ["facebook", "instagram", "linkedin"],
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    packages = response.json()
+    assert len(packages) == 3
+    assert {package["platform"] for package in packages} == {"facebook", "instagram", "linkedin"}
+    assert all(package["image"]["url"] for package in packages)
+    assert all(package["caption"].startswith("Sach Se Bhaagna Nahi") for package in packages)
+    assert all(package["cta"] == "Agar relate karte ho, share karo." for package in packages)
+    assert all(package["hashtags"] == ["#hinglishquotes", "#dilkibaat"] for package in packages)
+    assert all(package["tags"] == ["quote community"] for package in packages)
+    assert all(package["status"] == "draft" for package in packages)

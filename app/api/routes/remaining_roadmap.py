@@ -30,7 +30,7 @@ from app.schemas.remaining_roadmap import (
 from app.services.performance_service import ingest_metric, summarize_performance
 from app.services.risk_policy_service import assess_content_risk, autopilot_decision, get_or_create_policy
 from app.services.social_listening_service import collect_workspace_signals, create_manual_signal, summarize_signals
-from app.services.media_composer_service import compose_branded_variants
+from app.services.media_composer_service import compose_branded_variants, compose_generated_text_variants
 from app.services.content_package_service import create_content_packages, content_package_payload
 from app.services.media_service import MediaService
 from app.api.routes.workspace_intelligence import _member_or_403
@@ -192,6 +192,12 @@ def compose_complete_social_package(
     caption = (payload.caption or payload.body).strip()
     if not headline or not caption:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Headline and caption/body are required")
+    use_text_card = payload.use_branded_text_card and payload.template_family == "quote-card"
+    if payload.source_media_id is None and not use_text_card:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Choose a workspace-owned source image or explicitly enable the branded quote text-card.",
+        )
 
     try:
         content = Content(
@@ -205,22 +211,43 @@ def compose_complete_social_package(
         assess_content_risk(content, [])
         db.add(content)
         db.flush()
-        variants = compose_branded_variants(
-            db,
-            organization_id=org_id,
-            user_id=current_user.id,
-            source_media_id=payload.source_media_id,
-            theme_id=payload.theme_id,
-            template_family=payload.template_family,
-            headline=headline,
-            body=payload.body or caption,
-            cta=payload.cta,
-            website=payload.website,
-            handle=payload.handle,
-            phone=payload.phone,
-            whatsapp=payload.whatsapp,
-            location=payload.location,
-        )
+        if payload.source_media_id is not None:
+            variants = compose_branded_variants(
+                db,
+                organization_id=org_id,
+                user_id=current_user.id,
+                source_media_id=payload.source_media_id,
+                theme_id=payload.theme_id,
+                template_family=payload.template_family,
+                headline=headline,
+                body=payload.body or caption,
+                cta=payload.cta,
+                website=payload.website,
+                handle=payload.handle,
+                phone=payload.phone,
+                whatsapp=payload.whatsapp,
+                location=payload.location,
+            )
+        else:
+            variants = compose_generated_text_variants(
+                db,
+                organization_id=org_id,
+                user_id=current_user.id,
+                theme_id=payload.theme_id,
+                template_family=payload.template_family,
+                headline=headline,
+                body=payload.body or caption,
+                cta=payload.cta,
+                website=payload.website,
+                handle=payload.handle,
+                phone=payload.phone,
+                whatsapp=payload.whatsapp,
+                location=payload.location,
+            )
+        facebook_variant = next((media for media in variants if media.filename.startswith("facebook-")), variants[0] if variants else None)
+        if facebook_variant is None:
+            raise ValueError("No branded image variants were rendered")
+        content.media_id = facebook_variant.id
         variant_by_platform = {media.filename.split("-", 1)[0]: media for media in variants}
         packages = create_content_packages(
             db,

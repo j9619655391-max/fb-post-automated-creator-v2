@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 from app.models.brand_theme import BrandTheme
 from app.models.media import Media
 from app.models.workspace_intelligence import WorkspaceProfile
+from app.models.organization import Organization
 from app.services.media_service import MediaService
 
 
@@ -179,6 +180,7 @@ def _draw_footer(
     draw: ImageDraw.ImageDraw,
     canvas: Image.Image,
     *,
+    brand_label: str | None = None,
     website: str | None,
     handle: str | None,
     phone: str | None,
@@ -188,7 +190,7 @@ def _draw_footer(
     accent: tuple[int, int, int],
     font: ImageFont.ImageFont,
 ) -> None:
-    parts = [part for part in [website, handle, f"WhatsApp: {whatsapp}" if whatsapp else None, phone, location] if part]
+    parts = [part for part in [brand_label, website, handle, f"WhatsApp: {whatsapp}" if whatsapp else None, phone, location] if part]
     if not parts:
         return
     footer = "  ·  ".join(parts)
@@ -212,9 +214,11 @@ def _render_template(
     phone: str | None,
     whatsapp: str | None,
     location: str | None,
-    logo: Image.Image | None,
-    settings: dict[str, Any],
+    brand_label: str | None = None,
+    logo: Image.Image | None = None,
+    settings: dict[str, Any] | None = None,
 ) -> Image.Image:
+    settings = settings or _theme_settings(None, None)
     primary = settings["primary"]
     surface = settings["surface"]
     accent = settings["accent"]
@@ -241,7 +245,7 @@ def _render_template(
             draw.text((size[0] // 2, int(size[1] * 0.83)), cta, font=small, fill=accent, anchor="mm")
         canvas = _place_logo(canvas, logo, settings["logo_position"])
         draw = ImageDraw.Draw(canvas, "RGBA")
-        _draw_footer(draw, canvas, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
+        _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
         return canvas
 
     if family == "product-catalog":
@@ -258,7 +262,7 @@ def _render_template(
             draw.text((size[0] // 2, size[1] - margin - 53), cta, font=small, fill=primary, anchor="mm")
         canvas = _place_logo(canvas, logo, settings["logo_position"])
         draw = ImageDraw.Draw(canvas, "RGBA")
-        _draw_footer(draw, canvas, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
+        _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
         return canvas
 
     if family == "collection-story":
@@ -273,7 +277,7 @@ def _render_template(
             draw.text((size[0] // 2, int(size[1] * 0.78)), cta, font=small, fill=accent, anchor="mm")
         canvas = _place_logo(canvas, logo, settings["logo_position"])
         draw = ImageDraw.Draw(canvas, "RGBA")
-        _draw_footer(draw, canvas, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
+        _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
         return canvas
 
     # fashion-editorial: image-led, left-safe editorial panel.
@@ -288,7 +292,7 @@ def _render_template(
         draw.text((margin, int(size[1] * 0.80)), cta, font=small, fill=accent)
     _place_logo(canvas.convert("RGBA"), logo, settings["logo_position"])
     draw = ImageDraw.Draw(canvas, "RGBA")
-    _draw_footer(draw, canvas, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
+    _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
     return canvas
 
 
@@ -328,6 +332,8 @@ def compose_generated_text_variants(
         if logo_media:
             logo = Image.open(_local_path(logo_media))
     settings = _theme_settings(profile, theme)
+    organization = db.query(Organization).filter(Organization.id == organization_id).first()
+    brand_label = organization.name if organization else None
     website = website or (profile.website_url if profile else None)
     phone = phone or (profile.contact_phone if profile else None)
     whatsapp = whatsapp or (profile.whatsapp_display_phone if profile else None)
@@ -347,6 +353,7 @@ def compose_generated_text_variants(
             phone=phone,
             whatsapp=whatsapp,
             location=location,
+            brand_label=brand_label,
             logo=logo,
             settings=settings,
         )
@@ -390,6 +397,8 @@ def compose_branded_variants(
         if logo_media:
             logo = Image.open(_local_path(logo_media))
     settings = _theme_settings(profile, theme)
+    organization = db.query(Organization).filter(Organization.id == organization_id).first()
+    brand_label = organization.name if organization else None
     website = website or (profile.website_url if profile else None)
     phone = phone or (profile.contact_phone if profile else None)
     whatsapp = whatsapp or (profile.whatsapp_display_phone if profile else None)
@@ -410,6 +419,7 @@ def compose_branded_variants(
                 phone=phone,
                 whatsapp=whatsapp,
                 location=location,
+                brand_label=brand_label,
                 logo=logo,
                 settings=settings,
             )

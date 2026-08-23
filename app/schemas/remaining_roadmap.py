@@ -113,6 +113,10 @@ class BrandedMediaVariantResponse(BaseModel):
 
 
 class CompleteSocialPostComposeRequest(BrandedMediaComposeRequest):
+    # A quote-card may intentionally use a deterministic branded text background.
+    # Other template families still require source_media_id at route validation.
+    source_media_id: Optional[int] = Field(default=None, ge=1)
+    use_branded_text_card: bool = False
     platforms: list[Literal["facebook", "instagram", "linkedin"]] = Field(
         default_factory=lambda: ["facebook", "instagram", "linkedin"],
         min_length=1,

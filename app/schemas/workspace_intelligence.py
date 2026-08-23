@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Any, Optional
 
-from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
 
 class WorkspaceProfileUpsert(BaseModel):
@@ -34,6 +34,11 @@ class WorkspaceProfileUpsert(BaseModel):
     facebook_url: Optional[AnyHttpUrl] = None
     instagram_url: Optional[AnyHttpUrl] = None
     whatsapp_url: Optional[AnyHttpUrl] = None
+    @field_validator("website_url", "linkedin_url", "facebook_url", "instagram_url", "whatsapp_url", mode="before")
+    @classmethod
+    def blank_urls_to_none(cls, value):
+        return None if value in ("", None) else value
+
     logo_media_id: Optional[int] = Field(default=None, ge=1)
     telegram_approval_chat_id: Optional[str] = Field(default=None, max_length=255)
     telegram_approval_user_id: Optional[str] = Field(default=None, max_length=255)

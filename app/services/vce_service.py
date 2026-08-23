@@ -30,6 +30,10 @@ _CATEGORY_SIGNALS: dict[str, tuple[str, ...]] = {
     "company-culture": ("team", "company", "culture", "hiring", "jobs", "organization"),
     "behind-the-scenes": ("behind", "process", "team", "craft", "studio", "agency", "fashion"),
     "offer-booking": ("offer", "booking", "consultation", "appointment", "service", "fashion", "marketing"),
+    "love-quotes": ("love", "romance", "relationship", "ishq", "pyaar", "mohabbat", "quotes", "quote"),
+    "truth-quotes": ("truth", "reality", "sach", "haqeeqat", "quotes", "quote"),
+    "motivational-quotes": ("motivational", "motivation", "inspiration", "inspirational", "hustle", "growth", "quotes", "quote"),
+    "pain-quotes": ("pain", "sad", "sadness", "healing", "heartbreak", "dard", "tanha", "quotes", "quote"),
 }
 
 

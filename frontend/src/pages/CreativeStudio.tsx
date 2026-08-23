@@ -14,6 +14,7 @@ export default function CreativeStudio() {
   const { currentOrg } = useOrg();
   const [media, setMedia] = useState<Media[]>([]);
   const [sourceMediaId, setSourceMediaId] = useState<number | ''>('');
+  const [useBrandedTextCard, setUseBrandedTextCard] = useState(false);
   const [templateFamily, setTemplateFamily] = useState<CompleteSocialPostComposeRequest['template_family']>('fashion-editorial');
   const [headline, setHeadline] = useState('');
   const [body, setBody] = useState('');
@@ -29,6 +30,17 @@ export default function CreativeStudio() {
   const [results, setResults] = useState<CompleteSocialPostPackage[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+
+  const isQuoteWorkspace = Boolean(currentOrg && /love|truth|motivational|pain|quote/i.test(currentOrg.name));
+
+  useEffect(() => {
+    if (isQuoteWorkspace) {
+      setTemplateFamily('quote-card');
+      setUseBrandedTextCard(true);
+      setHashtags('hinglishquotes, lovetruthmotivationpain, dilkibaat');
+      setCta('Agar dil ko laga, share karo.');
+    }
+  }, [currentOrg?.id, isQuoteWorkspace]);
 
   useEffect(() => {
     if (!currentOrg) return;
@@ -60,8 +72,9 @@ export default function CreativeStudio() {
 
   async function handleCompose(event: React.FormEvent) {
     event.preventDefault();
-    if (!currentOrg || sourceMediaId === '') {
-      setMessage('Choose or upload a workspace-owned image first.');
+    if (!currentOrg) return;
+    if (sourceMediaId === '' && !useBrandedTextCard) {
+      setMessage('Choose or upload a workspace-owned image, or enable the branded quote text-card.');
       return;
     }
     setBusy(true);
@@ -69,7 +82,8 @@ export default function CreativeStudio() {
     setResults([]);
     try {
       const variants = await composeCompleteSocialPackage(currentOrg.id, {
-        source_media_id: sourceMediaId,
+        ...(sourceMediaId === '' ? {} : { source_media_id: sourceMediaId }),
+        use_branded_text_card: useBrandedTextCard,
         template_family: templateFamily,
         headline,
         body,
@@ -124,11 +138,15 @@ export default function CreativeStudio() {
             ))}
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Source image</label>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Source image or branded text-card</label>
             <select value={sourceMediaId} onChange={(event) => setSourceMediaId(event.target.value ? Number(event.target.value) : '')} className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm">
-              <option value="">Choose uploaded image...</option>
+              <option value="">No source — use branded text-card</option>
               {media.map((item) => <option key={item.id} value={item.id}>{item.filename}</option>)}
             </select>
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input type="checkbox" checked={useBrandedTextCard} onChange={(event) => { setUseBrandedTextCard(event.target.checked); if (event.target.checked) setTemplateFamily('quote-card'); }} />
+              Use branded quote text-card background
+            </label>
             <label className="inline-block mt-2 text-sm text-indigo-700 cursor-pointer hover:underline">
               Upload new product/background image
               <input type="file" accept="image/*" onChange={handleUpload} className="hidden" />
@@ -144,9 +162,9 @@ export default function CreativeStudio() {
           <input value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder="Headline / collection / quote title" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Text printed on the image: quote, product detail, styling line, or collection story" rows={4} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           <textarea value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Post caption that appears with the image" rows={5} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <input value={hashtags} onChange={(event) => setHashtags(event.target.value)} placeholder="Hashtags, comma separated: fashion, tailoring, style" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Tags or mentions, comma separated: @brand, bridal clients" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <input value={cta} onChange={(event) => setCta(event.target.value)} placeholder="CTA: Book a consultation / WhatsApp us / Visit the studio" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <input value={hashtags} onChange={(event) => setHashtags(event.target.value)} placeholder={isQuoteWorkspace ? 'Hashtags, comma separated: hinglishquotes, dilkibaat' : 'Hashtags, comma separated: fashion, tailoring, style'} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Tags or mentions, comma separated: @brand, quote community" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <input value={cta} onChange={(event) => setCta(event.target.value)} placeholder={isQuoteWorkspace ? 'CTA: Agar dil ko laga, share karo.' : 'CTA: Book a consultation / WhatsApp us / Visit the studio'} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           <div className="grid sm:grid-cols-2 gap-3">
             <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="Instagram/Facebook handle" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
             <input value={website} onChange={(event) => setWebsite(event.target.value)} placeholder="Website" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />

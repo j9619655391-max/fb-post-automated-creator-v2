@@ -85,7 +85,9 @@ export interface CompleteSocialPostPackage {
   status: string;
 }
 
-export interface CompleteSocialPostComposeRequest extends BrandedMediaComposeRequest {
+export interface CompleteSocialPostComposeRequest extends Omit<BrandedMediaComposeRequest, 'source_media_id'> {
+  source_media_id?: number;
+  use_branded_text_card?: boolean;
   platforms?: Array<'facebook' | 'instagram' | 'linkedin'>;
   caption?: string;
   hashtags: string[];
