@@ -239,7 +239,7 @@ export default function CreativeStudio() {
           <div className="grid md:grid-cols-3 gap-4 mt-4">
             {results.map((post) => (
               <div key={post.package_id} className="rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
-                <img src={post.image.url} alt={`${post.platform} creative: ${post.headline}`} className="w-full aspect-square object-cover bg-slate-100" />
+                <img src={post.image.url} alt={`${post.platform} creative: ${post.headline}`} className="block h-auto w-full object-contain bg-slate-100" />
                 <div className="p-3 space-y-2">
                   <div className="flex items-center justify-between"><span className="text-xs font-black uppercase tracking-wider text-indigo-700">{post.platform}</span><span className="text-[11px] text-slate-500">{post.status}</span></div>
                   <p className="text-sm font-semibold text-slate-900">{post.headline}</p>

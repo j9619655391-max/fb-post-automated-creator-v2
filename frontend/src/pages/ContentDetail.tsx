@@ -162,7 +162,7 @@ export default function ContentDetail() {
           <div className="mt-4 grid gap-4 md:grid-cols-3">
             {packages.map((post) => (
               <article key={post.id} className="overflow-hidden rounded-xl border border-indigo-100 bg-white">
-                {post.media_variant_urls?.[0] ? <img src={post.media_variant_urls[0]} alt={`${post.platform} generated creative`} className="aspect-square w-full object-cover bg-slate-100" /> : <div className="flex aspect-square items-center justify-center bg-slate-100"><p className="px-4 text-center text-xs text-slate-500">Image preview is not available for this package.</p></div>}
+                {post.media_variant_urls?.[0] ? <img src={post.media_variant_urls[0]} alt={`${post.platform} generated creative`} className="block h-auto w-full object-contain bg-slate-100" /> : <div className="flex min-h-48 items-center justify-center bg-slate-100"><p className="px-4 text-center text-xs text-slate-500">Image preview is not available for this package.</p></div>}
                 <div className="space-y-2 p-4"><div className="flex items-center justify-between"><span className="text-xs font-black uppercase tracking-widest text-indigo-700">{post.platform}</span><span className="text-[11px] font-semibold text-slate-500">{post.status}</span></div><p className="text-sm font-semibold text-slate-900">{post.headline}</p><p className="whitespace-pre-wrap text-xs text-slate-700">{post.caption}</p>{post.cta && <p className="text-xs font-bold text-indigo-700">CTA: {post.cta}</p>}<p className="break-words text-xs text-slate-500">{post.hashtags.join(' ')}</p>{post.tags.length > 0 && <p className="break-words text-xs text-slate-500">Tags: {post.tags.join(', ')}</p>}</div>
               </article>
             ))}
