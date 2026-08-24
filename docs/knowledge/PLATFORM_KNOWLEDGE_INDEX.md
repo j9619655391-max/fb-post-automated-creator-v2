@@ -22,6 +22,7 @@ This library is the platform’s durable product and engineering knowledge base.
 | Billing and AI usage | `12-usage-cost-and-plan-controls.md` | Billing | billing service, generation usage, plan limits |
 | End-to-end architecture | `13-end-to-end-content-creator-operating-model.md` | Cross-module | all major routes/services/models |
 | Research and social listening | `14-research-opportunities-and-social-listening.md` | Insights/opportunities | opportunity service, social listening, recommendations |
+| Marketing templates and pamphlets | `15-marketing-templates-and-pamphlets.md` | Marketing brief, Creative Studio, pamphlet editor, print export | objective mapping, archetype catalog, placement profiles, print/fold renderer, QR and accessibility checks |
 
 ## Shared invariants
 
@@ -37,6 +38,8 @@ The platform must preserve these invariants across all modules:
 8. **No destructive convenience:** existing drafts, source assets, workspace data, and provider connections are not deleted or replaced without explicit confirmation.
 9. **Auditability:** important mutations and publish attempts must be traceable to a user, workspace, action, status transition, and timestamp.
 10. **Provider isolation:** external publishing is disabled or sandboxed until provider readiness, OAuth state, page/account target, cooldown, and daily cap policies all pass.
+11. **Objective-first creative:** marketing templates must be selected from a verified business objective, audience, funnel stage, and CTA; quote/community layouts must not be presented as product or sales collateral without explicit workspace configuration.
+12. **Production-aware output:** pamphlets and print exports must model trim, bleed, safe areas, fold geometry, QR fallbacks, accessibility text, and printer-specific profiles separately from social-image rendering.
 
 ## Study-document standard
 
