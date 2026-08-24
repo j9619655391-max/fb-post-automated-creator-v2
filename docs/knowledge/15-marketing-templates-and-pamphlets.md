@@ -121,7 +121,7 @@ The renderer should use no more than a small number of type roles per template. 
 
 ## Digital placement requirements
 
-A source creative should not simply be cropped into every placement. Meta provides placement-specific creative and text guidance and warns that copy may be truncated across placements and devices [1]. Its Stories guide describes fullscreen vertical image ads, lists a 30 MB maximum file size, 500 px minimum width, and 1% aspect-ratio tolerance, and reinforces concise primary text [3]. Meta search results also expose placement safe-zone guidance for top, bottom, and side interface overlays; these values should be versioned as placement metadata and not hard-coded as timeless truths.
+A source creative should not simply be cropped into every placement. Meta provides placement-specific creative and text guidance and warns that copy may be truncated across placements and devices [1]. Its Stories guide describes fullscreen vertical image ads, lists a 30 MB maximum file size, 500 px minimum width, and 1% aspect-ratio tolerance, and reinforces concise primary text [3]. Meta’s Safe Zone guidance defines the protected area where important text and logos should not be cropped or covered by the interface; it says 9:16 Stories/Reels creatives should keep top, bottom, and side edges free of key elements, while non-9:16 Instagram Feed creatives should keep bottom and side edges clear [12]. These rules should be versioned as placement metadata and not hard-coded as timeless truths.
 
 LinkedIn documents reusable image templates with square or vertical layouts, configurable logo, title/subtitle typography, optional three-benefit lead-generation treatment, CTA, and alt text. It recommends 1200×628 for landscape, 1200×1200 for square, and 720×900 for vertical ads, while warning that square and vertical assets may crop when shared organically [4].
 
@@ -368,3 +368,4 @@ For the active quote workspace, the first useful marketing extension is a **comm
 [9]: https://printninja.com/file-setup-for-full-bleed-printing/ "PrintNinja — File setup for full-bleed printing"
 [10]: https://www.48hourprint.com/brochure-folding-guide.html "48HourPrint — Brochure folding guide"
 [11]: https://www.adobe.com/learn/indesign/web/set-print-bleed "Adobe Learn — Set a print bleed in InDesign"
+[12]: https://www.facebook.com/business/help/980593475366490 "Meta Business Help — About text overlays and the Safe Zone for ads on Facebook and Instagram"

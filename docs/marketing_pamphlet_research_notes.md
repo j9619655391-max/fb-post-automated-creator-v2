@@ -99,3 +99,10 @@ Source: https://www.48hourprint.com/brochure-folding-guide.html
 The guide identifies common panel structures: single fold produces four panels; tri-fold produces six; double parallel and double gate folds produce eight; accordion produces six; and French fold produces eight. Some folds require narrower inner panels so the folded piece fits correctly. This means the flat artwork cannot be designed as identical independent panels without accounting for fold mechanics and reading order.
 
 Design implication: the pamphlet generator needs explicit fold type, flat-sheet dimensions, panel widths, panel numbers, front/back orientation, fold lines, cover/back-cover roles, and a fold-preview mode. It should sequence content by the closed-piece journey: cover hook → inside explanation/benefits/proof → action/contact panel, while preserving the printer’s inner-panel compensation rules.
+
+### Meta Business Help — text overlays and Safe Zone
+Source: https://www.facebook.com/business/help/980593475366490
+
+Meta defines the Safe Zone as the area where important text overlays and logos will not be cropped out or covered by interface elements. It recommends a clean, sufficiently large, contrasting font, avoiding too many messages, and staying inside the Safe Zone. For 9:16 Stories/Reels creatives, the top, bottom, and side edges should be free of key text, logos, and other critical elements. For non-9:16 Instagram Feed placements such as 1:1 or 4:5, the bottom and side edges should be kept clear. Meta also warns that taller-than-9:16 screens may zoom/crop or add background space, so critical content should sit comfortably inside the protected area.
+
+Design implication: store Safe Zone rules by placement and render them visibly in preview. Do not use a single crop for every placement, and keep disclaimers, QR codes, logos, and primary CTAs away from interface-covered edges.
