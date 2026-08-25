@@ -3,6 +3,15 @@ import { useOrg } from '../context/OrgContext';
 import { listMedia, uploadMedia, type Media } from '../api/media';
 import { composeCompleteSocialPackage, type CompleteSocialPostPackage, type CompleteSocialPostComposeRequest } from '../api/remainingRoadmap';
 
+const OBJECTIVE_OPTIONS = [
+  { value: 'awareness', label: 'Awareness' },
+  { value: 'education', label: 'Education' },
+  { value: 'product discovery', label: 'Product discovery' },
+  { value: 'conversion', label: 'Conversion / inquiry' },
+  { value: 'proof', label: 'Proof / case study' },
+  { value: 'community', label: 'Community / quote' },
+] as const;
+
 const TEMPLATE_OPTIONS = [
   { value: 'fashion-editorial', label: 'Fashion editorial', description: 'Premium image-led card with an elegant text-safe panel.' },
   { value: 'product-catalog', label: 'Product catalog', description: 'Product-first card with design details and inquiry CTA.' },
@@ -28,6 +37,10 @@ export default function CreativeStudio() {
   const [useBrandedTextCard, setUseBrandedTextCard] = useState(false);
   const [templateFamily, setTemplateFamily] = useState<CompleteSocialPostComposeRequest['template_family']>('fashion-editorial');
   const [backgroundPreset, setBackgroundPreset] = useState<BackgroundPreset>('midnight-aurora');
+  const [objective, setObjective] = useState('awareness');
+  const [creativeArchetype, setCreativeArchetype] = useState('service-announcement');
+  const [sourceRefs, setSourceRefs] = useState('');
+  const [claimRefs, setClaimRefs] = useState('');
   const [confirmComposeOpen, setConfirmComposeOpen] = useState(false);
   const [composeConfirmed, setComposeConfirmed] = useState(false);
   const [headline, setHeadline] = useState('');
@@ -50,6 +63,8 @@ export default function CreativeStudio() {
   useEffect(() => {
     if (isQuoteWorkspace) {
       setTemplateFamily('quote-card');
+      setCreativeArchetype('quote-card');
+      setObjective('community');
       setUseBrandedTextCard(true);
       setBackgroundPreset('rose-editorial');
       setHashtags('hinglishquotes, lovetruthmotivationpain, dilkibaat');
@@ -111,6 +126,13 @@ export default function CreativeStudio() {
         use_branded_text_card: useBrandedTextCard,
         template_family: templateFamily,
         background_preset: backgroundPreset,
+        image_text: body,
+        objective,
+        creative_archetype: creativeArchetype,
+        source_refs: sourceRefs.split(',').map((item) => item.trim()).filter(Boolean),
+        claim_refs: claimRefs.split(',').map((item) => item.trim()).filter(Boolean),
+        visual_brief: { copy_contract: 'image_text_separate_from_caption' },
+        asset_provenance: { operator_selected: true },
         headline,
         body,
         caption: caption || body,
@@ -202,7 +224,17 @@ export default function CreativeStudio() {
 
         <section className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm space-y-4">
           <div>
-            <h2 className="font-semibold text-slate-900">2. Write the exact creative copy</h2>
+            <h2 className="font-semibold text-slate-900">2. Define the marketing job</h2>
+            <p className="text-sm text-slate-500 mt-1">Choose the objective and archetype before writing. Evidence references are optional but should point to approved workspace sources or claims.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <label className="text-sm text-slate-700">Objective<select value={objective} onChange={(event) => setObjective(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm">{OBJECTIVE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
+            <label className="text-sm text-slate-700">Creative archetype<input value={creativeArchetype} onChange={(event) => setCreativeArchetype(event.target.value)} placeholder="service-announcement" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
+            <input value={sourceRefs} onChange={(event) => setSourceRefs(event.target.value)} placeholder="Approved source refs, comma separated" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
+            <input value={claimRefs} onChange={(event) => setClaimRefs(event.target.value)} placeholder="Approved claim refs, comma separated" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
+          </div>
+          <div>
+            <h2 className="font-semibold text-slate-900">3. Write the exact creative copy</h2>
             <p className="text-sm text-slate-500 mt-1">The headline/body/CTA are printed on the image. The caption, hashtags, and tags are the text that accompanies the image when posted.</p>
           </div>
           <input value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder="Headline / collection / quote title" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
@@ -219,7 +251,7 @@ export default function CreativeStudio() {
             <input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Studio/location" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
           </div>
           <button type="submit" disabled={busy} className="rounded-lg bg-indigo-600 text-white px-4 py-2 text-sm font-semibold hover:bg-indigo-700 disabled:opacity-50">Review & confirm compose</button>
-          <p className="text-xs text-slate-500">No image, package, or draft is created until you confirm the reviewed creative brief.</p>
+          <p className="text-xs text-slate-500">The image text stays separate from the longer caption. No image, package, or draft is created until you confirm the reviewed creative brief.</p>
           {confirmComposeOpen && (
             <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-4" role="dialog" aria-modal="true" aria-labelledby="studio-confirm-title">
               <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Final creative check</p>
@@ -239,14 +271,16 @@ export default function CreativeStudio() {
           <div className="grid md:grid-cols-3 gap-4 mt-4">
             {results.map((post) => (
               <div key={post.package_id} className="rounded-lg border border-slate-200 overflow-hidden bg-slate-50">
-                <img src={post.image.url} alt={`${post.platform} creative: ${post.headline}`} className="block h-auto w-full object-contain bg-slate-100" />
+                <img src={post.image.url} alt={post.alt_text || `${post.platform} creative: ${post.headline}`} className="block h-auto w-full object-contain bg-slate-100" />
                 <div className="p-3 space-y-2">
                   <div className="flex items-center justify-between"><span className="text-xs font-black uppercase tracking-wider text-indigo-700">{post.platform}</span><span className="text-[11px] text-slate-500">{post.status}</span></div>
                   <p className="text-sm font-semibold text-slate-900">{post.headline}</p>
+                  <p className="rounded bg-indigo-50 px-2 py-1 text-xs text-indigo-900"><strong>Image text:</strong> {post.image_text || 'Not recorded'}</p>
                   <p className="text-xs text-slate-700 whitespace-pre-wrap">{post.caption}</p>
                   {post.cta && <p className="text-xs font-semibold text-indigo-700">CTA: {post.cta}</p>}
                   <p className="text-xs text-slate-500 break-words">{post.hashtags.join(' ')}</p>
                   {post.tags.length > 0 && <p className="text-xs text-slate-500 break-words">Tags: {post.tags.join(', ')}</p>}
+                  <p className="text-[11px] text-slate-500">{post.objective || 'awareness'} · {post.creative_archetype || 'not specified'} · QA: {post.visual_qa_status || 'not_run'}</p>
                 </div>
               </div>
             ))}
