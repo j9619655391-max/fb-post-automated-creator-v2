@@ -33,6 +33,7 @@ The platform must preserve these invariants across all modules:
 3. **Human approval by default:** generation creates a draft for review. It does not publish, schedule, boost, send to Telegram, connect OAuth, or submit for approval without the correct explicit action and confirmation.
 4. **Truthful grounding:** logos, handles, URLs, phone numbers, claims, prices, product details, and sources must come from verified workspace inputs or clearly marked research; the system must not invent them.
 5. **Image plus copy:** a complete post package includes a readable image, caption, CTA, hashtags, tags, and platform-specific variants.
+   The package also persists separate image text, alt text, objective/archetype, evidence references, asset provenance, and structural visual-QA state for review.
 6. **Language policy:** the workspace’s preferred language and tone must be enforced in prompts, validation, captions, image text, and revisions.
 7. **Quality gates:** moderation, duplicate checks, contrast/readability checks, factual-grounding flags, and approval state are separate gates; passing one does not imply passing all.
 8. **No destructive convenience:** existing drafts, source assets, workspace data, and provider connections are not deleted or replaced without explicit confirmation.

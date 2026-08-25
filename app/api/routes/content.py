@@ -161,7 +161,22 @@ def create_content_package_variants(
         from app.models.organization import OrganizationMember
         if not db.query(OrganizationMember).filter(OrganizationMember.organization_id == organization_id, OrganizationMember.user_id == current_user.id).first():
             raise ValueError("Not a member of this workspace")
-        packages = create_content_packages(db, content_id, organization_id, payload.platforms, payload.theme_id, payload.opportunity_id)
+        packages = create_content_packages(
+            db,
+            content_id,
+            organization_id,
+            payload.platforms,
+            payload.theme_id,
+            payload.opportunity_id,
+            image_text=payload.image_text,
+            alt_text=payload.alt_text,
+            objective=payload.objective,
+            creative_archetype=payload.creative_archetype,
+            source_refs=payload.source_refs,
+            claim_refs=payload.claim_refs,
+            visual_brief=payload.visual_brief,
+            asset_provenance=payload.asset_provenance,
+        )
         return [_package_response(package, db) for package in packages]
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc

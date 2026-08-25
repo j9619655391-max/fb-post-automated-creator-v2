@@ -263,6 +263,23 @@ def compose_complete_social_package(
             hashtags=payload.hashtags,
             tags=payload.tags,
             media_variant_ids_by_platform={platform: [media.id] for platform, media in variant_by_platform.items()},
+            image_text=payload.image_text or payload.body or headline,
+            alt_text=payload.alt_text or f"{headline}. {payload.image_text or payload.body}",
+            objective=payload.objective,
+            creative_archetype=payload.creative_archetype or payload.template_family,
+            source_refs=payload.source_refs,
+            claim_refs=payload.claim_refs,
+            visual_brief={
+                **payload.visual_brief,
+                "template_family": payload.template_family,
+                "background_preset": payload.background_preset,
+            },
+            asset_provenance={
+                **payload.asset_provenance,
+                "mode": "branded_text_card" if use_text_card else "workspace_media",
+                "source_media_id": payload.source_media_id,
+            },
+            visual_qa_status="not_run",
         )
         media_service = MediaService(db)
         results = []
@@ -284,10 +301,20 @@ def compose_complete_social_package(
                         "url": media_service.get_public_url(image),
                     },
                     "headline": package_data["headline"] or headline,
+                    "image_text": package_data["image_text"],
                     "caption": package_data["caption"],
+                    "alt_text": package_data["alt_text"],
                     "cta": package_data["cta"],
+                    "objective": package_data["objective"],
+                    "creative_archetype": package_data["creative_archetype"],
                     "hashtags": package_data["hashtags"],
                     "tags": package_data["tags"],
+                    "source_refs": package_data["source_refs"],
+                    "claim_refs": package_data["claim_refs"],
+                    "visual_brief": package_data["visual_brief"],
+                    "asset_provenance": package_data["asset_provenance"],
+                    "visual_qa_status": package_data["visual_qa_status"],
+                    "visual_qa_flags": package_data["visual_qa_flags"],
                     "status": package_data["status"],
                 }
             )

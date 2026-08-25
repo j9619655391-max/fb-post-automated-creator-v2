@@ -96,8 +96,12 @@ class BrandedMediaComposeRequest(BaseModel):
     template_family: str = Field(default="fashion-editorial", pattern="^(fashion-editorial|product-catalog|quote-card|collection-story)$")
     background_preset: str = Field(default="midnight-aurora", pattern="^(midnight-aurora|warm-paper|rose-editorial|sunset-glow|minimal-ink|neon-night)$")
     headline: str = Field(default="", max_length=240)
+    image_text: Optional[str] = Field(default=None, max_length=160)
     body: str = Field(default="", max_length=3000)
+    alt_text: Optional[str] = Field(default=None, max_length=500)
     cta: str = Field(default="", max_length=300)
+    objective: Optional[str] = Field(default=None, max_length=120)
+    creative_archetype: Optional[str] = Field(default=None, max_length=120)
     website: Optional[str] = Field(default=None, max_length=500)
     handle: Optional[str] = Field(default=None, max_length=200)
     phone: Optional[str] = Field(default=None, max_length=100)
@@ -126,6 +130,10 @@ class CompleteSocialPostComposeRequest(BrandedMediaComposeRequest):
     caption: Optional[str] = Field(default=None, max_length=5000)
     hashtags: list[str] = Field(default_factory=list, max_length=40)
     tags: list[str] = Field(default_factory=list, max_length=40)
+    source_refs: list[str] = Field(default_factory=list, max_length=40)
+    claim_refs: list[str] = Field(default_factory=list, max_length=40)
+    visual_brief: dict[str, Any] = Field(default_factory=dict)
+    asset_provenance: dict[str, Any] = Field(default_factory=dict)
 
 
 class CompleteSocialPostPackageResponse(BaseModel):
@@ -134,10 +142,20 @@ class CompleteSocialPostPackageResponse(BaseModel):
     platform: Literal["facebook", "instagram", "linkedin"]
     image: BrandedMediaVariantResponse
     headline: str
+    image_text: Optional[str] = None
     caption: str
+    alt_text: Optional[str] = None
     cta: Optional[str] = None
+    objective: Optional[str] = None
+    creative_archetype: Optional[str] = None
     hashtags: list[str]
     tags: list[str]
+    source_refs: list[str] = []
+    claim_refs: list[str] = []
+    visual_brief: dict[str, Any] = {}
+    asset_provenance: dict[str, Any] = {}
+    visual_qa_status: str = "not_run"
+    visual_qa_flags: list[str] = []
     status: str
 
 

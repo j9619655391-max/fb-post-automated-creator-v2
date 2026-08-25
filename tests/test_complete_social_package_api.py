@@ -53,6 +53,10 @@ def test_compose_package_returns_image_and_social_copy_per_platform(
     assert {package["platform"] for package in packages} == {"facebook", "instagram", "linkedin"}
     assert all(package["image"]["url"] for package in packages)
     assert all(package["caption"].startswith("Style is personal") for package in packages)
+    assert all(package["image_text"] == "The right detail makes the moment yours." for package in packages)
+    assert all(package["creative_archetype"] == "quote-card" for package in packages)
+    assert all(package["asset_provenance"]["mode"] == "workspace_media" for package in packages)
+    assert all(package["visual_qa_status"] == "structural_pass" for package in packages)
     assert all(package["hashtags"] == ["#fashion", "#occasionwear"] for package in packages)
     assert all(package["tags"] == ["@kashverafashion", "style community"] for package in packages)
     assert all(package["status"] == "draft" for package in packages)
@@ -92,6 +96,10 @@ def test_compose_package_supports_explicit_branded_text_card_without_source(
     assert {package["platform"] for package in packages} == {"facebook", "instagram", "linkedin"}
     assert all(package["image"]["url"] for package in packages)
     assert all(package["caption"].startswith("Sach Se Bhaagna Nahi") for package in packages)
+    assert all(package["image_text"] == "Jo dil ko sach lagta hai, usey kehne ki himmat rakho." for package in packages)
+    assert all(package["creative_archetype"] == "quote-card" for package in packages)
+    assert all(package["asset_provenance"]["mode"] == "branded_text_card" for package in packages)
+    assert all(package["visual_qa_status"] == "structural_pass" for package in packages)
     assert all(package["cta"] == "Agar relate karte ho, share karo." for package in packages)
     assert all(package["hashtags"] == ["#hinglishquotes", "#dilkibaat"] for package in packages)
     assert all(package["tags"] == ["quote community"] for package in packages)

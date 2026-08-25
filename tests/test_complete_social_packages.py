@@ -52,12 +52,32 @@ def test_complete_social_package_metadata_is_preserved(db):
             "instagram": [102],
             "linkedin": [103],
         },
+        image_text="The Occasion Edit — made for your moment",
+        alt_text="A branded occasion-wear creative for The Occasion Edit.",
+        objective="product discovery",
+        creative_archetype="collection-story",
+        source_refs=["approved-source: https://example.com/style"],
+        claim_refs=["claim: handcrafted details"],
+        visual_brief={"template_family": "collection-story", "safe_area": "left-panel"},
+        asset_provenance={"mode": "workspace_media", "source_media_id": 44},
+        visual_qa_status="passed",
+        visual_qa_flags=[],
     )
 
     assert len(packages) == 3
     instagram = next(package for package in packages if package.platform == "instagram")
     payload = content_package_payload(instagram)
     assert payload["caption"].startswith("The Occasion Edit")
+    assert payload["image_text"] == "The Occasion Edit — made for your moment"
+    assert payload["alt_text"].startswith("A branded occasion-wear")
+    assert payload["objective"] == "product discovery"
+    assert payload["creative_archetype"] == "collection-story"
+    assert payload["source_refs"] == ["approved-source: https://example.com/style"]
+    assert payload["claim_refs"] == ["claim: handcrafted details"]
+    assert payload["visual_brief"]["safe_area"] == "left-panel"
+    assert payload["asset_provenance"]["mode"] == "workspace_media"
+    assert payload["visual_qa_status"] == "passed"
+    assert payload["visual_qa_flags"] == []
     assert payload["cta"] == "Book a consultation"
     assert payload["hashtags"] == ["#fashion", "#tailoring", "#Kashvera"]
     assert payload["tags"] == ["@kashverafashion", "occasion wear"]

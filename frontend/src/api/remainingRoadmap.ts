@@ -79,10 +79,20 @@ export interface CompleteSocialPostPackage {
   platform: 'facebook' | 'instagram' | 'linkedin';
   image: BrandedMediaVariant;
   headline: string;
+  image_text?: string | null;
   caption: string;
+  alt_text?: string | null;
   cta?: string | null;
+  objective?: string | null;
+  creative_archetype?: string | null;
   hashtags: string[];
   tags: string[];
+  source_refs?: string[];
+  claim_refs?: string[];
+  visual_brief?: Record<string, unknown>;
+  asset_provenance?: Record<string, unknown>;
+  visual_qa_status?: string;
+  visual_qa_flags?: string[];
   status: string;
 }
 
@@ -91,6 +101,10 @@ export interface CompleteSocialPostComposeRequest extends Omit<BrandedMediaCompo
   use_branded_text_card?: boolean;
   platforms?: Array<'facebook' | 'instagram' | 'linkedin'>;
   caption?: string;
+  source_refs?: string[];
+  claim_refs?: string[];
+  visual_brief?: Record<string, unknown>;
+  asset_provenance?: Record<string, unknown>;
   hashtags: string[];
   tags: string[];
 }
