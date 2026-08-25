@@ -21,6 +21,9 @@ export interface ContentPackage {
   source_urls: string[];
   source_refs?: string[];
   claim_refs?: string[];
+  source_ref_ids?: number[];
+  claim_ref_ids?: number[];
+  evidence_status?: string;
   visual_brief?: Record<string, unknown>;
   asset_provenance?: Record<string, unknown>;
   media_variant_ids: number[];
@@ -42,6 +45,9 @@ export interface ContentPackageInput {
   creative_archetype?: string;
   source_refs?: string[];
   claim_refs?: string[];
+  source_ref_ids?: number[];
+  claim_ref_ids?: number[];
+  evidence_status?: string;
   visual_brief?: Record<string, unknown>;
   asset_provenance?: Record<string, unknown>;
 }

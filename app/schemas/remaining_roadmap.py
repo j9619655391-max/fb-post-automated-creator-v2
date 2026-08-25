@@ -3,7 +3,7 @@
 from datetime import datetime
 from typing import Any, Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field
 
 
 class SocialSignalCreate(BaseModel):
@@ -132,6 +132,8 @@ class CompleteSocialPostComposeRequest(BrandedMediaComposeRequest):
     tags: list[str] = Field(default_factory=list, max_length=40)
     source_refs: list[str] = Field(default_factory=list, max_length=40)
     claim_refs: list[str] = Field(default_factory=list, max_length=40)
+    source_ref_ids: list[int] = Field(default_factory=list, max_length=40)
+    claim_ref_ids: list[int] = Field(default_factory=list, max_length=40)
     visual_brief: dict[str, Any] = Field(default_factory=dict)
     asset_provenance: dict[str, Any] = Field(default_factory=dict)
 
@@ -152,11 +154,41 @@ class CompleteSocialPostPackageResponse(BaseModel):
     tags: list[str]
     source_refs: list[str] = []
     claim_refs: list[str] = []
+    source_ref_ids: list[int] = []
+    claim_ref_ids: list[int] = []
+    evidence_status: str = "unverified"
     visual_brief: dict[str, Any] = {}
     asset_provenance: dict[str, Any] = {}
     visual_qa_status: str = "not_run"
     visual_qa_flags: list[str] = []
     status: str
+
+
+class PamphletBriefCreate(BaseModel):
+    title: str = Field(min_length=1, max_length=255)
+    objective: Optional[str] = Field(default=None, max_length=120)
+    audience: Optional[str] = Field(default=None, max_length=500)
+    panel_count: int = Field(default=2, ge=2, le=6)
+    paper_size: str = Field(default="A4", pattern="^(A4|A5|letter|custom)$")
+    orientation: str = Field(default="landscape", pattern="^(landscape|portrait)$")
+    fold_style: str = Field(default="half-fold", pattern="^(none|half-fold|tri-fold|z-fold|gate-fold)$")
+    trim_width_mm: int = Field(default=297, ge=50, le=1000)
+    trim_height_mm: int = Field(default=210, ge=50, le=1000)
+    bleed_mm: int = Field(default=3, ge=0, le=20)
+    safe_area_mm: int = Field(default=5, ge=1, le=50)
+    qr_url: Optional[AnyHttpUrl] = None
+    accessibility_text: Optional[str] = Field(default=None, max_length=5000)
+    content: dict[str, Any] = Field(default_factory=dict)
+    approval_required: bool = True
+
+
+class PamphletBriefResponse(PamphletBriefCreate):
+    id: int
+    organization_id: int
+    status: str
+    created_by_id: Optional[int] = None
+    created_at: datetime
+    updated_at: Optional[datetime] = None
 
 
 class AutomationDecisionResponse(BaseModel):

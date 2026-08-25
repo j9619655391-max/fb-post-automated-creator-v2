@@ -17,6 +17,8 @@ from app.models.content_generation import ContentGenerationJob, GenerationStatus
 from app.models.generation_plan import ContentGenerationPlan, GenerationPlanStatus, GenerationRecurrence, ApprovalMode
 from app.models.content_generation_usage import ContentGenerationUsage
 from app.models.workspace_intelligence import WorkspaceProfile, WorkspaceSource
+from app.models.workspace_evidence import WorkspaceClaim, WorkspaceClaimSource, ContentPackageEvidence
+from app.models.pamphlet import PamphletBrief
 from app.models.brand_theme import BrandTheme
 from app.models.content_opportunity import ContentOpportunity, OpportunityStatus
 from app.models.content_revision import ContentRevision, TelegramApprovalRequest
@@ -33,7 +35,7 @@ __all__ = [
     "ContentCategory", "HookTemplate", "ContentPublishStatus",
     "SystemSetting", "ContentGenerationJob", "GenerationStatus",
         "ContentGenerationPlan", "GenerationPlanStatus", "GenerationRecurrence", "ApprovalMode",
-    "ContentGenerationUsage", "WorkspaceProfile", "WorkspaceSource", "BrandTheme", "ContentOpportunity", "OpportunityStatus", "ContentRevision", "TelegramApprovalRequest", "ContentPackage", "SocialSignal", "PublishingMetric", "WorkspaceAutomationPolicy",
+    "ContentGenerationUsage", "WorkspaceProfile", "WorkspaceSource", "WorkspaceClaim", "WorkspaceClaimSource", "ContentPackageEvidence", "PamphletBrief", "BrandTheme", "ContentOpportunity", "OpportunityStatus", "ContentRevision", "TelegramApprovalRequest", "ContentPackage", "SocialSignal", "PublishingMetric", "WorkspaceAutomationPolicy",
 
 ]
 

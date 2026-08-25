@@ -174,6 +174,8 @@ def create_content_package_variants(
             creative_archetype=payload.creative_archetype,
             source_refs=payload.source_refs,
             claim_refs=payload.claim_refs,
+            source_ref_ids=payload.source_ref_ids,
+            claim_ref_ids=payload.claim_ref_ids,
             visual_brief=payload.visual_brief,
             asset_provenance=payload.asset_provenance,
         )

@@ -6,7 +6,8 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.api.dependencies import get_current_user
 from app.models.user import User
-from app.schemas.media import MediaResponse
+from app.schemas.media import MediaResponse, MediaProvenanceUpdate
+
 from app.services.media_service import MediaService
 
 router = APIRouter()
@@ -63,7 +64,37 @@ def list_user_media(
     return responses
 
 
+@router.patch("/{media_id}/provenance", response_model=MediaResponse)
+def update_media_provenance(
+    media_id: int,
+    payload: MediaProvenanceUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    service = MediaService(db)
+    media = service.get_media(media_id)
+    if not media:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Media not found")
+    allowed = current_user.is_admin or media.user_id == current_user.id
+    if not allowed and media.organization_id:
+        from app.models.organization import OrganizationMember
+        allowed = bool(db.query(OrganizationMember).filter(
+            OrganizationMember.organization_id == media.organization_id,
+            OrganizationMember.user_id == current_user.id,
+        ).first())
+    if not allowed:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="No permission to update this media")
+    for field, value in payload.model_dump().items():
+        setattr(media, field, value)
+    db.commit()
+    db.refresh(media)
+    response = MediaResponse.model_validate(media)
+    response.url = service.get_public_url(media)
+    return response
+
+
 @router.get("/{media_id}", response_model=MediaResponse)
+
 def get_media(
     media_id: int,
     db: Session = Depends(get_db),

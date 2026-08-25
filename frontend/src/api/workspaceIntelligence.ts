@@ -43,6 +43,18 @@ export interface WorkspaceProfile {
   updated_at?: string | null;
 }
 
+export interface WorkspaceClaim {
+  id: number;
+  organization_id: number;
+  claim_text: string;
+  claim_type: string;
+  review_status: 'pending' | 'approved' | 'rejected';
+  source_ids: number[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at?: string | null;
+}
+
 export interface WorkspaceSource {
   id: number;
   organization_id: number;
@@ -83,11 +95,23 @@ export interface ContentOpportunity {
 export interface WorkspaceIntelligence {
   profile: WorkspaceProfile | null;
   sources: WorkspaceSource[];
+  claims: WorkspaceClaim[];
   source_count: number;
   approved_source_count: number;
+  claim_count: number;
+  approved_claim_count: number;
+  grounding_status: 'needs_review' | 'sources_ready' | 'ready';
 }
 
 export type WorkspaceProfileInput = Omit<WorkspaceProfile, 'id' | 'organization_id' | 'last_refreshed_at' | 'created_at' | 'updated_at'>;
+
+export interface WorkspaceClaimInput {
+  claim_text: string;
+  claim_type?: string;
+  review_status?: 'pending' | 'approved' | 'rejected';
+  source_ids?: number[];
+  metadata?: Record<string, unknown>;
+}
 
 export interface WorkspaceSourceInput {
   source_type: WorkspaceSourceType;
@@ -116,6 +140,18 @@ export function getWorkspaceIntelligence(orgId: number): Promise<WorkspaceIntell
 
 export function saveWorkspaceProfile(orgId: number, payload: WorkspaceProfileInput): Promise<WorkspaceProfile> {
   return apiPut<WorkspaceProfile>(`organizations/${orgId}/intelligence/profile`, payload);
+}
+
+export function listWorkspaceClaims(orgId: number): Promise<WorkspaceClaim[]> {
+  return apiGet<WorkspaceClaim[]>(`organizations/${orgId}/intelligence/claims`);
+}
+
+export function addWorkspaceClaim(orgId: number, payload: WorkspaceClaimInput): Promise<WorkspaceClaim> {
+  return apiPost<WorkspaceClaim>(`organizations/${orgId}/intelligence/claims`, payload);
+}
+
+export function reviewWorkspaceClaim(orgId: number, claimId: number, reviewStatus: 'pending' | 'approved' | 'rejected', reviewNote?: string): Promise<WorkspaceClaim> {
+  return apiPost<WorkspaceClaim>(`organizations/${orgId}/intelligence/claims/${claimId}/review`, { review_status: reviewStatus, review_note: reviewNote });
 }
 
 export function addWorkspaceSource(orgId: number, payload: WorkspaceSourceInput): Promise<WorkspaceSource> {

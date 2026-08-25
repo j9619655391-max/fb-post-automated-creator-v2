@@ -13,6 +13,7 @@ from app.models.publishing_metric import PublishingMetric
 from app.models.social_signal import SocialSignal
 from app.models.user import User
 from app.models.workspace_automation import WorkspaceAutomationPolicy
+from app.models.pamphlet import PamphletBrief
 from app.schemas.remaining_roadmap import (
     AnalyticsSummaryResponse,
     AutomationDecisionResponse,
@@ -22,6 +23,8 @@ from app.schemas.remaining_roadmap import (
     BrandedMediaVariantResponse,
     CompleteSocialPostComposeRequest,
     CompleteSocialPostPackageResponse,
+    PamphletBriefCreate,
+    PamphletBriefResponse,
     PublishingMetricCreate,
     PublishingMetricResponse,
     SocialSignalCreate,
@@ -30,12 +33,102 @@ from app.schemas.remaining_roadmap import (
 from app.services.performance_service import ingest_metric, summarize_performance
 from app.services.risk_policy_service import assess_content_risk, autopilot_decision, get_or_create_policy
 from app.services.social_listening_service import collect_workspace_signals, create_manual_signal, summarize_signals
-from app.services.media_composer_service import compose_branded_variants, compose_generated_text_variants
+from app.services.media_composer_service import CREATIVE_ARCHETYPE_CATALOG, compose_branded_variants, compose_generated_text_variants
 from app.services.content_package_service import create_content_packages, content_package_payload
 from app.services.media_service import MediaService
 from app.api.routes.workspace_intelligence import _member_or_403
 
 router = APIRouter()
+
+
+@router.get("/creative-capabilities")
+def list_creative_capabilities():
+    return {
+        "objectives": sorted({item["objective"] for item in CREATIVE_ARCHETYPE_CATALOG.values()}),
+        "archetypes": [
+            {"name": name, **details}
+            for name, details in sorted(CREATIVE_ARCHETYPE_CATALOG.items())
+        ],
+        "platforms": ["facebook", "instagram", "linkedin"],
+        "quality_gates": ["moderation", "duplicate_check", "evidence", "asset_provenance", "structural_visual_qa", "human_approval"],
+    }
+
+
+def _pamphlet_payload(brief: PamphletBrief) -> dict[str, Any]:
+    try:
+        content = json.loads(brief.content_json or "{}")
+    except json.JSONDecodeError:
+        content = {}
+    return {
+        "id": brief.id,
+        "organization_id": brief.organization_id,
+        "title": brief.title,
+        "objective": brief.objective,
+        "audience": brief.audience,
+        "panel_count": brief.panel_count,
+        "paper_size": brief.paper_size,
+        "orientation": brief.orientation,
+        "fold_style": brief.fold_style,
+        "trim_width_mm": brief.trim_width_mm,
+        "trim_height_mm": brief.trim_height_mm,
+        "bleed_mm": brief.bleed_mm,
+        "safe_area_mm": brief.safe_area_mm,
+        "qr_url": brief.qr_url,
+        "accessibility_text": brief.accessibility_text,
+        "content": content,
+        "approval_required": brief.approval_required,
+        "status": brief.status,
+        "created_by_id": brief.created_by_id,
+        "created_at": brief.created_at,
+        "updated_at": brief.updated_at,
+    }
+
+
+@router.get("/pamphlets", response_model=list[PamphletBriefResponse])
+def list_pamphlet_briefs(
+    organization_id: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, organization_id, current_user.id)
+    briefs = db.query(PamphletBrief).filter(PamphletBrief.organization_id == organization_id).order_by(PamphletBrief.created_at.desc()).all()
+    return [_pamphlet_payload(brief) for brief in briefs]
+
+
+@router.post("/pamphlets", response_model=PamphletBriefResponse, status_code=status.HTTP_201_CREATED)
+def create_pamphlet_brief(
+    payload: PamphletBriefCreate,
+    organization_id: int = Query(..., ge=1),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, organization_id, current_user.id, write=True)
+    if payload.qr_url and not payload.accessibility_text:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="QR-enabled pamphlets require accessibility_text")
+    brief = PamphletBrief(
+        organization_id=organization_id,
+        title=payload.title.strip(),
+        objective=payload.objective,
+        audience=payload.audience,
+        panel_count=payload.panel_count,
+        paper_size=payload.paper_size,
+        orientation=payload.orientation,
+        fold_style=payload.fold_style,
+        trim_width_mm=payload.trim_width_mm,
+        trim_height_mm=payload.trim_height_mm,
+        bleed_mm=payload.bleed_mm,
+        safe_area_mm=payload.safe_area_mm,
+        qr_url=str(payload.qr_url) if payload.qr_url else None,
+        accessibility_text=payload.accessibility_text,
+        content_json=json.dumps(payload.content, ensure_ascii=False),
+        approval_required=payload.approval_required,
+        created_by_id=current_user.id,
+        status="draft",
+    )
+    db.add(brief)
+    db.commit()
+    db.refresh(brief)
+    return _pamphlet_payload(brief)
 
 
 def _json_list(value: str | None) -> list[str]:
@@ -269,6 +362,8 @@ def compose_complete_social_package(
             creative_archetype=payload.creative_archetype or payload.template_family,
             source_refs=payload.source_refs,
             claim_refs=payload.claim_refs,
+            source_ref_ids=payload.source_ref_ids,
+            claim_ref_ids=payload.claim_ref_ids,
             visual_brief={
                 **payload.visual_brief,
                 "template_family": payload.template_family,
@@ -311,6 +406,9 @@ def compose_complete_social_package(
                     "tags": package_data["tags"],
                     "source_refs": package_data["source_refs"],
                     "claim_refs": package_data["claim_refs"],
+                    "source_ref_ids": package_data["source_ref_ids"],
+                    "claim_ref_ids": package_data["claim_ref_ids"],
+                    "evidence_status": package_data["evidence_status"],
                     "visual_brief": package_data["visual_brief"],
                     "asset_provenance": package_data["asset_provenance"],
                     "visual_qa_status": package_data["visual_qa_status"],

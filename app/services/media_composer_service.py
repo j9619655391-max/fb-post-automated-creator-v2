@@ -32,6 +32,18 @@ FORMAT_SIZES = {
     "linkedin": (1200, 627),
 }
 TEMPLATE_FAMILIES = {"fashion-editorial", "product-catalog", "quote-card", "collection-story"}
+CREATIVE_ARCHETYPE_CATALOG = {
+    "service-announcement": {"objective": "awareness", "template_family": "fashion-editorial", "asset_requirement": "workspace_media_or_branded_fallback"},
+    "educational-explainer": {"objective": "education", "template_family": "collection-story", "asset_requirement": "workspace_media_or_branded_fallback"},
+    "product-showcase": {"objective": "product discovery", "template_family": "product-catalog", "asset_requirement": "workspace_media_required"},
+    "offer-card": {"objective": "conversion", "template_family": "product-catalog", "asset_requirement": "workspace_media_required"},
+    "case-study-proof": {"objective": "proof", "template_family": "collection-story", "asset_requirement": "approved_evidence_required"},
+    "customer-story": {"objective": "proof", "template_family": "fashion-editorial", "asset_requirement": "approved_evidence_required"},
+    "behind-the-scenes": {"objective": "community", "template_family": "fashion-editorial", "asset_requirement": "workspace_media_required"},
+    "seasonal-campaign": {"objective": "awareness", "template_family": "collection-story", "asset_requirement": "workspace_media_or_branded_fallback"},
+    "quote-card": {"objective": "community", "template_family": "quote-card", "asset_requirement": "branded_fallback_allowed"},
+    "collection-story": {"objective": "product discovery", "template_family": "collection-story", "asset_requirement": "workspace_media_or_branded_fallback"},
+}
 TEMPLATE_COPY_BUDGETS = {
     "fashion-editorial": (56, 76),
     "product-catalog": (60, 88),

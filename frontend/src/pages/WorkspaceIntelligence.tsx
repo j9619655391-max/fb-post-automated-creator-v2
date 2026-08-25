@@ -10,6 +10,8 @@ import {
   refreshWorkspaceSources,
   reviewWorkspaceSource,
   removeWorkspaceSource,
+  addWorkspaceClaim,
+  reviewWorkspaceClaim,
   saveWorkspaceProfile,
   type ContentOpportunity,
   type WorkspaceIntelligence,
@@ -115,6 +117,8 @@ export default function WorkspaceIntelligence() {
   const [sourceType, setSourceType] = useState<WorkspaceSourceType>('website');
   const [sourceUrl, setSourceUrl] = useState('');
   const [sourceTitle, setSourceTitle] = useState('');
+  const [claimText, setClaimText] = useState('');
+  const [claimSourceIds, setClaimSourceIds] = useState('');
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
@@ -122,7 +126,7 @@ export default function WorkspaceIntelligence() {
 
   const sourceSummary = useMemo(() => {
     if (!intelligence) return 'No sources yet';
-    return `${intelligence.source_count} source${intelligence.source_count === 1 ? '' : 's'} · ${intelligence.approved_source_count} approved`;
+    return `${intelligence.source_count} source${intelligence.source_count === 1 ? '' : 's'} · ${intelligence.approved_source_count} approved · ${intelligence.claim_count} claim${intelligence.claim_count === 1 ? '' : 's'} · grounding ${intelligence.grounding_status}`;
   }, [intelligence]);
 
   useEffect(() => {
@@ -156,7 +160,7 @@ export default function WorkspaceIntelligence() {
     setError('');
     try {
       const saved = await saveWorkspaceProfile(currentOrg.id, form);
-      setForm(profileToForm({ profile: saved, sources: intelligence?.sources || [], source_count: intelligence?.source_count || 0, approved_source_count: intelligence?.approved_source_count || 0 }));
+      setForm(profileToForm({ profile: saved, sources: intelligence?.sources || [], claims: intelligence?.claims || [], source_count: intelligence?.source_count || 0, approved_source_count: intelligence?.approved_source_count || 0, claim_count: intelligence?.claim_count || 0, approved_claim_count: intelligence?.approved_claim_count || 0, grounding_status: intelligence?.grounding_status || 'needs_review' }));
       setMessage('Workspace intelligence profile saved.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save workspace profile');
@@ -238,6 +242,45 @@ export default function WorkspaceIntelligence() {
       setMessage('Source added. Refresh it to collect the latest public information.');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add source');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleAddClaim(e: React.FormEvent) {
+    e.preventDefault();
+    if (!currentOrg || !claimText.trim()) return;
+    setSaving(true);
+    setMessage('');
+    setError('');
+    try {
+      const claim = await addWorkspaceClaim(currentOrg.id, {
+        claim_text: claimText.trim(),
+        claim_type: 'approved_fact',
+        source_ids: claimSourceIds.split(',').map((item) => Number(item.trim())).filter((item) => Number.isInteger(item) && item > 0),
+      });
+      setIntelligence((current) => current ? { ...current, claims: [claim, ...current.claims], claim_count: current.claim_count + 1 } : current);
+      setClaimText('');
+      setClaimSourceIds('');
+      setMessage('Claim added and kept pending review. Approve it only after checking the linked source evidence.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not add claim');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleReviewClaim(claimId: number, reviewStatus: 'pending' | 'approved' | 'rejected') {
+    if (!currentOrg) return;
+    setSaving(true);
+    setMessage('');
+    setError('');
+    try {
+      const reviewed = await reviewWorkspaceClaim(currentOrg.id, claimId, reviewStatus);
+      setIntelligence((current) => current ? { ...current, claims: current.claims.map((claim) => claim.id === claimId ? reviewed : claim), approved_claim_count: current.claims.filter((claim) => claim.id === claimId ? reviewStatus === 'approved' : claim.review_status === 'approved').length, grounding_status: (current.approved_source_count > 0 && current.claims.some((claim) => claim.id === claimId ? reviewStatus === 'approved' : claim.review_status === 'approved')) ? 'ready' : current.grounding_status } : current);
+      setMessage(reviewStatus === 'approved' ? 'Claim approved for grounded generation.' : 'Claim review status updated.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not update claim review status');
     } finally {
       setSaving(false);
     }
@@ -412,8 +455,15 @@ export default function WorkspaceIntelligence() {
         <button type="submit" disabled={saving || loading} className="rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white hover:bg-slate-800 disabled:opacity-50">{saving ? 'Saving...' : 'Save workspace intelligence'}</button>
       </form>
 
+            <section className="rounded-2xl border border-indigo-200 bg-indigo-50 p-6 shadow-sm">
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-xl font-bold text-indigo-950">Grounding readiness</h2><p className="mt-1 text-sm text-indigo-800">Status: <strong>{intelligence?.grounding_status || 'needs_review'}</strong>. Only approved active sources and approved claims may be attached by ID to a package.</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-black uppercase text-indigo-700">{intelligence?.approved_claim_count || 0} approved claims</span></div>
+        <form onSubmit={handleAddClaim} className="mt-5 grid gap-3 md:grid-cols-[1fr_220px_auto]"><input value={claimText} onChange={(e) => setClaimText(e.target.value)} placeholder="Verified business fact or service claim" className="rounded-xl border-indigo-200 text-sm" /><input value={claimSourceIds} onChange={(e) => setClaimSourceIds(e.target.value)} placeholder="Source IDs: 12, 13" className="rounded-xl border-indigo-200 text-sm" /><button type="submit" disabled={saving || !claimText.trim()} className="rounded-xl bg-indigo-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">Add pending claim</button></form>
+        <div className="mt-4 space-y-2">{(intelligence?.claims || []).slice(0, 8).map((claim) => <div key={claim.id} className="flex flex-col gap-2 rounded-xl border border-indigo-200 bg-white p-3 md:flex-row md:items-center md:justify-between"><div><p className="text-sm font-semibold text-slate-900">#{claim.id} {claim.claim_text}</p><p className="text-xs text-slate-500">{claim.review_status} · linked source IDs: {claim.source_ids.join(', ') || 'none'}</p></div><div className="flex gap-2"><button type="button" disabled={saving || claim.review_status === 'approved'} onClick={() => handleReviewClaim(claim.id, 'approved')} className="rounded-lg border border-emerald-200 px-3 py-1.5 text-xs font-bold text-emerald-700 disabled:opacity-40">Approve</button><button type="button" disabled={saving || claim.review_status === 'rejected'} onClick={() => handleReviewClaim(claim.id, 'rejected')} className="rounded-lg border border-amber-200 px-3 py-1.5 text-xs font-bold text-amber-700 disabled:opacity-40">Reject</button></div></div>)}</div>
+      </section>
+
       <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-xl font-bold text-slate-900">Knowledge sources</h2><p className="mt-1 text-sm text-slate-500">{sourceSummary}. Website sources are fetched only when you request a refresh and are marked pending review.</p></div></div>
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div><h2 className="text-xl font-bold text-slate-900">Knowledge sources</h2>
+<p className="mt-1 text-sm text-slate-500">{sourceSummary}. Website sources are fetched only when you request a refresh and are marked pending review.</p></div></div>
         <form onSubmit={handleAddSource} className="mt-5 grid gap-3 md:grid-cols-[180px_1fr_1fr_auto]">
           <select value={sourceType} onChange={(e) => setSourceType(e.target.value as WorkspaceSourceType)} className="rounded-xl border-slate-300 text-sm"><option value="website">Website</option><option value="facebook_page">Facebook Page</option><option value="instagram_account">Instagram Business</option><option value="linkedin_page">LinkedIn Page</option><option value="whatsapp_business">WhatsApp Business</option><option value="manual">Manual source</option></select>
           <input value={sourceUrl} onChange={(e) => setSourceUrl(e.target.value)} type="url" placeholder="https://business.example.com" className="rounded-xl border-slate-300 text-sm" />

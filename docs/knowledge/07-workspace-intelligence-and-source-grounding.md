@@ -31,10 +31,16 @@ Every profile, source, media asset, category preference, content record, package
 
 The system should not fill blanks with invented URLs, phone numbers, handles, logos, or product facts. When data is absent, the UI should say what is missing and allow a truthful fallback such as the workspace name. Missing data may lower confidence or require review, but should not silently become hallucinated content.
 
+## Relational evidence contract
+
+Workspace Knowledge now supports first-class `WorkspaceClaim` records with review status and linked workspace source IDs. A package may attach `source_ref_ids` only when each source is active and approved, and `claim_ref_ids` only when each claim is approved. The package stores both the relational IDs and the existing human-readable references for backward-compatible review. `evidence_status=verified` means the attached IDs passed workspace ownership and approval validation; an empty evidence set remains `unverified` rather than being treated as grounded.
+
+The workspace intelligence summary exposes `grounding_status`: `needs_review` when no approved source exists, `sources_ready` when approved sources exist but no approved claim exists, and `ready` when both are available. This is a readiness signal, not permission to publish. Human approval remains a separate gate.
+
 ## UI contract
 
-Workspace Knowledge should expose profile, language, voice, palette, brand assets, URLs, source statuses, categories, and approval controls. New Content and Creative Studio should show the active workspace name and explain which profile signals drove the recommendation.
+Workspace Knowledge should expose profile, language, voice, palette, brand assets, URLs, source statuses, categories, claims, evidence links, and approval controls. New Content and Creative Studio should show the active workspace name and explain which profile signals drove the recommendation. The current UI now lets an operator create a pending claim, link source IDs, and approve or reject it after review.
 
 ## Tests
 
-Test organization isolation, blank optional URLs, profile save/load, source pending/approved behavior, category evidence, media ownership, recommendation mismatch, and prevention of invented contacts. Include a regression test where a quote workspace cannot receive fashion/product guidance.
+Test organization isolation, blank optional URLs, profile save/load, source pending/approved behavior, relational claim/source validation, package evidence-link persistence, category evidence, media ownership, recommendation mismatch, and prevention of invented contacts. Include a regression test where a quote workspace cannot receive fashion/product guidance.
