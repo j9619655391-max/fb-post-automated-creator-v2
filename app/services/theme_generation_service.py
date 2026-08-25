@@ -9,7 +9,8 @@ from app.core.config import settings
 from app.models.content_category import ContentCategory
 from app.models.content_generation import ContentGenerationJob, GenerationStatus
 from app.models.content_generation_usage import ContentGenerationUsage
-from app.models.workspace_intelligence import WorkspaceProfile
+from app.models.workspace_intelligence import WorkspaceProfile, WorkspaceSource
+from app.services.content_moderation_service import contains_unsubstantiated_outcome_claim
 from app.services.genai_client import (
     GenerationUsage,
     active_provider_and_model,
@@ -56,6 +57,23 @@ def generate_themes(
         else None
     )
     business = ""
+    approved_claims = []
+    if profile and profile.approved_claims_json:
+        try:
+            approved_claims = json.loads(profile.approved_claims_json)
+        except json.JSONDecodeError:
+            approved_claims = []
+    approved_source_exists = bool(
+        organization_id
+        and db.query(WorkspaceSource)
+        .filter(
+            WorkspaceSource.organization_id == organization_id,
+            WorkspaceSource.is_active.is_(True),
+            WorkspaceSource.review_status == "approved",
+        )
+        .first()
+    )
+    claim_evidence_available = bool(approved_claims or approved_source_exists)
     if profile:
         business = "\n".join(
             line for line in [
@@ -78,6 +96,8 @@ Rules:
 - Do not default to generic motivation, life advice, or unrelated viral quotes unless the category is explicitly Fashion Quote, Motivation, or Reflection.
 - For a fashion/design business, prefer collection showcases, garment details, fabric/craft, styling, bridal/occasion wear, custom orders, customer proof, booking, and relevant seasonal moments.
 - Each theme must be one line: a hook idea, topic, or angle.
+- Do not claim or imply ROI, traffic growth, conversion lifts, guaranteed results, customer outcomes, or numeric performance without approved evidence.
+- Approved evidence is available only when the workspace has explicitly approved claims or an approved source excerpt.
 Return ONLY the list, one theme per line, no numbering or bullets."""
     if extra_instruction:
         prompt += f"\nAdditional context: {extra_instruction}"
@@ -105,11 +125,16 @@ Return ONLY the list, one theme per line, no numbering or bullets."""
         client = get_client()
         response = client.models.generate_content(model=model, contents=prompt)
         usage = extract_usage(response)
-        themes = [
-            line.strip()
-            for line in (getattr(response, "text", "") or "").strip().split("\n")
-            if line.strip()
-        ][:count]
+        themes = []
+        for raw_line in (getattr(response, "text", "") or "").strip().split("\n"):
+            line = raw_line.strip().lstrip("-•* ").strip()
+            if not line:
+                continue
+            if not claim_evidence_available and contains_unsubstantiated_outcome_claim(line):
+                continue
+            themes.append(line)
+            if len(themes) >= count:
+                break
         if job:
             job.status = GenerationStatus.SUCCEEDED
             job.completed_at = datetime.now(timezone.utc)

@@ -9,6 +9,7 @@ where typography and text placement must be reproducible.
 import io
 import json
 import os
+import re
 import uuid
 from pathlib import Path
 from typing import Any
@@ -31,6 +32,12 @@ FORMAT_SIZES = {
     "linkedin": (1200, 627),
 }
 TEMPLATE_FAMILIES = {"fashion-editorial", "product-catalog", "quote-card", "collection-story"}
+TEMPLATE_COPY_BUDGETS = {
+    "fashion-editorial": (56, 76),
+    "product-catalog": (60, 88),
+    "quote-card": (140, 140),
+    "collection-story": (64, 88),
+}
 QUOTE_BACKGROUND_PRESETS = {
     "midnight-aurora": "Deep midnight field with soft aurora glow",
     "warm-paper": "Warm paper field with terracotta editorial accents",
@@ -261,6 +268,40 @@ def _fit_quote_font(
 
 
 
+def _fit_template_text(
+    draw: ImageDraw.ImageDraw,
+    text: str,
+    preferences: dict[str, Any],
+    *,
+    font_key: str,
+    max_width: int,
+    max_height: int,
+    start_size: int,
+    min_size: int = 18,
+    italic: bool = False,
+    spacing: int = 5,
+) -> tuple[ImageFont.ImageFont, str, int]:
+    """Fit marketing overlay copy into a measured box before it is painted."""
+    size = start_size
+    while size >= min_size:
+        font = _font(preferences, font_key, size, italic=italic)
+        wrapped, _, height = _text_box(draw, text, font, max_width, spacing=spacing)
+        if height <= max_height:
+            return font, wrapped, spacing
+        size -= 2
+    font = _font(preferences, font_key, min_size, italic=italic)
+    wrapped, _, _ = _text_box(draw, text, font, max_width, spacing=max(2, spacing - 1))
+    return font, wrapped, max(2, spacing - 1)
+
+
+
+def _compact_overlay_text(value: str | None, max_chars: int) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1].rsplit(" ", 1)[0].rstrip(" ,;:—-") + "…"
+
+
 def _place_logo(canvas: Image.Image, logo: Image.Image | None, position: str) -> Image.Image:
     if logo is None:
         return canvas
@@ -296,14 +337,24 @@ def _draw_footer(
     accent: tuple[int, int, int],
     font: ImageFont.ImageFont,
 ) -> None:
-    parts = [part for part in [brand_label, website, handle, f"WhatsApp: {whatsapp}" if whatsapp else None, phone, location] if part]
+    parts = [part for part in [brand_label, website, handle, f"WhatsApp: {whatsapp}" if whatsapp else None, phone, location] if str(part or "").strip() and str(part).strip() not in {"[]", "{}", "null"}]
     if not parts:
         return
-    footer = "  ·  ".join(parts)
+    footer = _compact_overlay_text("  ·  ".join(parts), 96)
     max_width = canvas.width - 80
-    footer, _, _ = _text_box(draw, footer, font, max_width, spacing=2)
+    footer_font, footer, _ = _fit_template_text(
+        draw,
+        footer,
+        {"small": font},
+        font_key="small",
+        max_width=max_width,
+        max_height=30,
+        start_size=max(14, getattr(font, "size", 20) or 20),
+        min_size=12,
+        spacing=2,
+    )
     draw.rounded_rectangle((28, canvas.height - 58, canvas.width - 28, canvas.height - 18), radius=12, fill=(0, 0, 0, 125))
-    draw.text((canvas.width // 2, canvas.height - 38), footer, font=font, fill=accent, anchor="mm", stroke_width=1, stroke_fill=color)
+    draw.text((canvas.width // 2, canvas.height - 38), footer, font=footer_font, fill=accent, anchor="mm", stroke_width=1, stroke_fill=color)
 
 
 
@@ -326,6 +377,11 @@ def _render_template(
     settings: dict[str, Any] | None = None,
 ) -> Image.Image:
     settings = settings or _theme_settings(None, None)
+    cta = _compact_overlay_text(cta, 52)
+    if family != "quote-card":
+        headline_limit, body_limit = TEMPLATE_COPY_BUDGETS.get(family, (56, 76))
+        headline = _compact_overlay_text(headline, headline_limit)
+        body = _compact_overlay_text(body, body_limit)
     primary = settings["primary"]
     surface = settings["surface"]
     accent = settings["accent"]
@@ -367,10 +423,30 @@ def _render_template(
         draw = ImageDraw.Draw(canvas, "RGBA")
         panel_top = int(size[1] * 0.50)
         draw.rounded_rectangle((margin // 2, panel_top, size[0] - margin // 2, size[1] - margin // 2), radius=22, fill=(*primary, 220))
-        title, _, _ = _text_box(draw, headline or "New design", heading, size[0] - margin * 2, spacing=4)
-        draw.multiline_text((margin, panel_top + 30), title, font=heading, fill=surface, spacing=4)
-        detail, _, _ = _text_box(draw, body or "Made for your next occasion.", body_font, size[0] - margin * 2, spacing=4)
-        draw.multiline_text((margin, panel_top + 30 + int(size[1] * 0.10) + 18), detail, font=body_font, fill=surface, spacing=4)
+        title_font, title, title_spacing = _fit_template_text(
+            draw,
+            headline or "New design",
+            typography,
+            font_key="heading",
+            max_width=size[0] - margin * 2,
+            max_height=int(size[1] * 0.10),
+            start_size=max(30, int(size[0] * 0.068)),
+            min_size=22,
+            spacing=4,
+        )
+        draw.multiline_text((margin, panel_top + 30), title, font=title_font, fill=surface, spacing=title_spacing)
+        detail_font, detail, detail_spacing = _fit_template_text(
+            draw,
+            body or "Made for your next occasion.",
+            typography,
+            font_key="body",
+            max_width=size[0] - margin * 2,
+            max_height=int(size[1] * 0.16),
+            start_size=max(24, int(size[0] * 0.045)),
+            min_size=18,
+            spacing=4,
+        )
+        draw.multiline_text((margin, panel_top + 30 + int(size[1] * 0.10) + 18), detail, font=detail_font, fill=surface, spacing=detail_spacing)
         if cta:
             draw.rounded_rectangle((margin, size[1] - margin - 82, size[0] - margin, size[1] - margin - 24), radius=18, fill=accent)
             draw.text((size[0] // 2, size[1] - margin - 53), cta, font=small, fill=primary, anchor="mm")
@@ -385,8 +461,19 @@ def _render_template(
         draw.rectangle((0, 0, size[0], int(size[1] * 0.18)), fill=surface)
         draw.text((size[0] // 2, int(size[1] * 0.09)), (headline or "Collection story").upper(), font=small, fill=primary, anchor="mm")
         draw.rounded_rectangle((margin, int(size[1] * 0.25), size[0] - margin, int(size[1] * 0.72)), radius=24, outline=accent, width=max(3, size[0] // 300))
-        quote, _, _ = _text_box(draw, body or "Designed around your story.", quote_font, size[0] - margin * 3, spacing=8)
-        draw.multiline_text((size[0] // 2, int(size[1] * 0.51)), quote, font=quote_font, fill=surface, anchor="mm", align="center", spacing=8)
+        story_font, quote, story_spacing = _fit_template_text(
+            draw,
+            body or "Designed around your story.",
+            typography,
+            font_key="quote",
+            max_width=size[0] - margin * 3,
+            max_height=int(size[1] * 0.34),
+            start_size=max(34, int(size[0] * 0.06)),
+            min_size=24,
+            italic=True,
+            spacing=8,
+        )
+        draw.multiline_text((size[0] // 2, int(size[1] * 0.51)), quote, font=story_font, fill=surface, anchor="mm", align="center", spacing=story_spacing)
         if cta:
             draw.text((size[0] // 2, int(size[1] * 0.78)), cta, font=small, fill=accent, anchor="mm")
         canvas = _place_logo(canvas, logo, settings["logo_position"])
@@ -394,17 +481,54 @@ def _render_template(
         _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
         return canvas
 
-    # fashion-editorial: image-led, left-safe editorial panel.
+    # fashion-editorial: image-led service layout with separate, bounded copy zones.
     canvas = _draw_gradient_overlay(canvas, 0, 125)
     draw = ImageDraw.Draw(canvas, "RGBA")
-    draw.rounded_rectangle((margin // 2, margin // 2, int(size[0] * 0.57), size[1] - margin // 2), radius=26, fill=(*primary, 185))
-    title, _, _ = _text_box(draw, headline or "Designed for your moment", heading, int(size[0] * 0.49), spacing=6)
-    draw.multiline_text((margin, int(size[1] * 0.22)), title, font=heading, fill=surface, spacing=6)
-    detail, _, _ = _text_box(draw, body or "Crafted details. Personal style.", body_font, int(size[0] * 0.45), spacing=5)
-    draw.multiline_text((margin, int(size[1] * 0.55)), detail, font=body_font, fill=surface, spacing=5)
+    panel_right = int(size[0] * 0.57)
+    panel_bottom = size[1] - margin // 2
+    draw.rounded_rectangle((margin // 2, margin // 2, panel_right, panel_bottom), radius=26, fill=(*primary, 185))
+    title_font, title, title_spacing = _fit_template_text(
+        draw,
+        headline or "Designed for your moment",
+        typography,
+        font_key="heading",
+        max_width=panel_right - margin * 2,
+        max_height=int(size[1] * 0.17),
+        start_size=max(30, int(size[0] * 0.060)),
+        min_size=24,
+        spacing=5,
+    )
+    title_y = int(size[1] * 0.20)
+    draw.multiline_text((margin, title_y), title, font=title_font, fill=surface, spacing=title_spacing)
+    detail_font, detail, detail_spacing = _fit_template_text(
+        draw,
+        body or "Crafted details. Personal style.",
+        typography,
+        font_key="body",
+        max_width=panel_right - margin * 2,
+        max_height=int(size[1] * 0.15),
+        start_size=max(24, int(size[0] * 0.036)),
+        min_size=20,
+        spacing=4,
+    )
+    detail_y = int(size[1] * 0.48)
+    draw.multiline_text((margin, detail_y), detail, font=detail_font, fill=surface, spacing=detail_spacing)
     if cta:
-        draw.text((margin, int(size[1] * 0.80)), cta, font=small, fill=accent)
-    _place_logo(canvas.convert("RGBA"), logo, settings["logo_position"])
+        cta_font, cta_text, _ = _fit_template_text(
+            draw,
+            cta,
+            typography,
+            font_key="small",
+            max_width=panel_right - margin * 2,
+            max_height=34,
+            start_size=max(18, int(size[0] * 0.020)),
+            min_size=14,
+            spacing=2,
+        )
+        cta_y = int(size[1] * 0.74)
+        draw.rounded_rectangle((margin, cta_y - 24, panel_right - margin, cta_y + 24), radius=16, fill=accent)
+        draw.text(((margin + panel_right - margin) // 2, cta_y), cta_text, font=cta_font, fill=primary, anchor="mm")
+    canvas = _place_logo(canvas, logo, settings["logo_position"])
     draw = ImageDraw.Draw(canvas, "RGBA")
     _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
     return canvas
@@ -523,7 +647,8 @@ def compose_branded_variants(
     website = website or (profile.website_url if profile else None)
     phone = phone or (profile.contact_phone if profile else None)
     whatsapp = whatsapp or (profile.whatsapp_display_phone if profile else None)
-    location = location or (profile.locations_json if profile else None)
+    location_values = _json(profile.locations_json, []) if profile else []
+    location = location or (", ".join(str(item).strip() for item in location_values if str(item).strip()) if isinstance(location_values, list) else None)
     handle = handle or None
     variants: list[Media] = []
     with Image.open(_local_path(source)) as original:
