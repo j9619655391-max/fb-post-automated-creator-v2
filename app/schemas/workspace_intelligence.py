@@ -76,6 +76,28 @@ class WorkspaceSourceReview(BaseModel):
     review_note: Optional[str] = Field(default=None, max_length=2000)
 
 
+class WorkspaceClaimCreate(BaseModel):
+    claim_text: str = Field(min_length=1, max_length=2000)
+    claim_type: str = Field(default="approved_fact", pattern="^(approved_fact|offer|identity|service|metric|testimonial)$")
+    review_status: str = Field(default="pending", pattern="^(pending|approved|rejected)$")
+    source_ids: list[int] = Field(default_factory=list, max_length=20)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class WorkspaceClaimReview(BaseModel):
+    review_status: str = Field(pattern="^(pending|approved|rejected)$")
+    review_note: Optional[str] = Field(default=None, max_length=2000)
+
+
+class WorkspaceClaimResponse(WorkspaceClaimCreate):
+    id: int
+    organization_id: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class WorkspaceSourceResponse(WorkspaceSourceCreate):
     id: int
     organization_id: int
@@ -108,5 +130,9 @@ class ContentOpportunityResponse(BaseModel):
 class WorkspaceIntelligenceResponse(BaseModel):
     profile: Optional[WorkspaceProfileResponse] = None
     sources: list[WorkspaceSourceResponse] = Field(default_factory=list)
+    claims: list[WorkspaceClaimResponse] = Field(default_factory=list)
     source_count: int
     approved_source_count: int
+    claim_count: int = 0
+    approved_claim_count: int = 0
+    grounding_status: str = "needs_review"

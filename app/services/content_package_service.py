@@ -9,6 +9,8 @@ from app.models.content import Content
 from app.models.content_opportunity import ContentOpportunity
 from app.models.media import Media
 from app.models.content_package import ContentPackage
+from app.models.workspace_evidence import ContentPackageEvidence, WorkspaceClaim
+from app.models.workspace_intelligence import WorkspaceSource
 from app.models.brand_theme import BrandTheme
 from app.services.media_composer_service import FORMAT_SIZES
 
@@ -35,6 +37,36 @@ def _validate_choice(value: str | None, allowed: set[str], label: str) -> str | 
     if normalized and normalized not in allowed:
         raise ValueError(f"Unsupported {label}: {normalized}")
     return normalized or None
+
+
+def _validate_evidence_ids(
+    db: Session,
+    organization_id: int,
+    source_ids: list[int] | None,
+    claim_ids: list[int] | None,
+) -> tuple[list[int], list[int], str]:
+    normalized_sources = list(dict.fromkeys(int(value) for value in (source_ids or []) if int(value) > 0))[:40]
+    normalized_claims = list(dict.fromkeys(int(value) for value in (claim_ids or []) if int(value) > 0))[:40]
+    if normalized_sources:
+        sources = db.query(WorkspaceSource).filter(
+            WorkspaceSource.organization_id == organization_id,
+            WorkspaceSource.id.in_(normalized_sources),
+            WorkspaceSource.is_active.is_(True),
+            WorkspaceSource.review_status == "approved",
+        ).all()
+        if {source.id for source in sources} != set(normalized_sources):
+            raise ValueError("Every source_ref_id must belong to an active approved workspace source")
+    if normalized_claims:
+        claims = db.query(WorkspaceClaim).filter(
+            WorkspaceClaim.organization_id == organization_id,
+            WorkspaceClaim.id.in_(normalized_claims),
+            WorkspaceClaim.review_status == "approved",
+        ).all()
+        if {claim.id for claim in claims} != set(normalized_claims):
+            raise ValueError("Every claim_ref_id must belong to an approved workspace claim")
+    if normalized_sources or normalized_claims:
+        return normalized_sources, normalized_claims, "verified"
+    return [], [], "unverified"
 
 
 def _structural_visual_qa(db: Session, organization_id: int, platform: str, media_ids: list[int]) -> tuple[str, list[str]]:
@@ -136,6 +168,8 @@ def create_content_packages(
     creative_archetype: str | None = None,
     source_refs: list[str] | None = None,
     claim_refs: list[str] | None = None,
+    source_ref_ids: list[int] | None = None,
+    claim_ref_ids: list[int] | None = None,
     visual_brief: dict[str, Any] | None = None,
     asset_provenance: dict[str, Any] | None = None,
     visual_qa_status: str = "not_run",
@@ -157,6 +191,9 @@ def create_content_packages(
         opportunity = db.query(ContentOpportunity).filter(ContentOpportunity.id == opportunity_id, ContentOpportunity.organization_id == organization_id).first()
         if not opportunity:
             raise ValueError("Opportunity not found in this workspace")
+    validated_source_ids, validated_claim_ids, evidence_status = _validate_evidence_ids(
+        db, organization_id, source_ref_ids, claim_ref_ids
+    )
     packages: list[ContentPackage] = []
     for platform in normalized:
         package = db.query(ContentPackage).filter(ContentPackage.source_content_id == content.id, ContentPackage.platform == platform).first()
@@ -177,6 +214,9 @@ def create_content_packages(
         package.source_urls_json = json.dumps(_source_urls(opportunity))
         package.source_refs_json = json.dumps(_normalize_items(source_refs))
         package.claim_refs_json = json.dumps(_normalize_items(claim_refs))
+        package.source_ref_ids_json = json.dumps(validated_source_ids)
+        package.claim_ref_ids_json = json.dumps(validated_claim_ids)
+        package.evidence_status = evidence_status
         variant_ids = (media_variant_ids_by_platform or {}).get(platform, [])
         qa_status = visual_qa_status
         qa_flags = _normalize_items(visual_qa_flags)
@@ -200,6 +240,13 @@ def create_content_packages(
         package.visual_qa_flags_json = json.dumps(qa_flags)
         package.status = "draft"
         packages.append(package)
+    db.flush()
+    for package in packages:
+        db.query(ContentPackageEvidence).filter(ContentPackageEvidence.content_package_id == package.id).delete(synchronize_session=False)
+        for source_id in validated_source_ids:
+            db.add(ContentPackageEvidence(content_package_id=package.id, source_id=source_id, evidence_type="source"))
+        for claim_id in validated_claim_ids:
+            db.add(ContentPackageEvidence(content_package_id=package.id, claim_id=claim_id, evidence_type="claim"))
     db.commit()
     for package in packages:
         db.refresh(package)
@@ -226,6 +273,9 @@ def content_package_payload(package: ContentPackage) -> dict[str, Any]:
         "source_urls": _json_list(package.source_urls_json),
         "source_refs": _json_value(package.source_refs_json, []),
         "claim_refs": _json_value(package.claim_refs_json, []),
+        "source_ref_ids": [int(value) for value in _json_list(package.source_ref_ids_json) if value.isdigit()],
+        "claim_ref_ids": [int(value) for value in _json_list(package.claim_ref_ids_json) if value.isdigit()],
+        "evidence_status": package.evidence_status,
         "visual_brief": _json_value(package.visual_brief_json, {}),
         "asset_provenance": _json_value(package.asset_provenance_json, {}),
         "media_variant_ids": [int(value) for value in _json_list(package.media_variant_ids_json) if value.isdigit()],

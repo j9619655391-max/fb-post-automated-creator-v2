@@ -41,6 +41,8 @@ export default function CreativeStudio() {
   const [creativeArchetype, setCreativeArchetype] = useState('service-announcement');
   const [sourceRefs, setSourceRefs] = useState('');
   const [claimRefs, setClaimRefs] = useState('');
+  const [sourceRefIds, setSourceRefIds] = useState('');
+  const [claimRefIds, setClaimRefIds] = useState('');
   const [confirmComposeOpen, setConfirmComposeOpen] = useState(false);
   const [composeConfirmed, setComposeConfirmed] = useState(false);
   const [headline, setHeadline] = useState('');
@@ -131,6 +133,8 @@ export default function CreativeStudio() {
         creative_archetype: creativeArchetype,
         source_refs: sourceRefs.split(',').map((item) => item.trim()).filter(Boolean),
         claim_refs: claimRefs.split(',').map((item) => item.trim()).filter(Boolean),
+        source_ref_ids: sourceRefIds.split(',').map((item) => Number(item.trim())).filter((item) => Number.isInteger(item) && item > 0),
+        claim_ref_ids: claimRefIds.split(',').map((item) => Number(item.trim())).filter((item) => Number.isInteger(item) && item > 0),
         visual_brief: { copy_contract: 'image_text_separate_from_caption' },
         asset_provenance: { operator_selected: true },
         headline,
@@ -230,8 +234,10 @@ export default function CreativeStudio() {
           <div className="grid sm:grid-cols-2 gap-3">
             <label className="text-sm text-slate-700">Objective<select value={objective} onChange={(event) => setObjective(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm">{OBJECTIVE_OPTIONS.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label>
             <label className="text-sm text-slate-700">Creative archetype<input value={creativeArchetype} onChange={(event) => setCreativeArchetype(event.target.value)} placeholder="service-announcement" className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></label>
-            <input value={sourceRefs} onChange={(event) => setSourceRefs(event.target.value)} placeholder="Approved source refs, comma separated" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
-            <input value={claimRefs} onChange={(event) => setClaimRefs(event.target.value)} placeholder="Approved claim refs, comma separated" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
+            <input value={sourceRefs} onChange={(event) => setSourceRefs(event.target.value)} placeholder="Source notes, comma separated" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
+            <input value={claimRefs} onChange={(event) => setClaimRefs(event.target.value)} placeholder="Claim notes, comma separated" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm sm:col-span-2" />
+            <input value={sourceRefIds} onChange={(event) => setSourceRefIds(event.target.value)} placeholder="Approved source IDs, e.g. 12, 13" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            <input value={claimRefIds} onChange={(event) => setClaimRefIds(event.target.value)} placeholder="Approved claim IDs, e.g. 4, 5" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           </div>
           <div>
             <h2 className="font-semibold text-slate-900">3. Write the exact creative copy</h2>
@@ -280,7 +286,7 @@ export default function CreativeStudio() {
                   {post.cta && <p className="text-xs font-semibold text-indigo-700">CTA: {post.cta}</p>}
                   <p className="text-xs text-slate-500 break-words">{post.hashtags.join(' ')}</p>
                   {post.tags.length > 0 && <p className="text-xs text-slate-500 break-words">Tags: {post.tags.join(', ')}</p>}
-                  <p className="text-[11px] text-slate-500">{post.objective || 'awareness'} · {post.creative_archetype || 'not specified'} · QA: {post.visual_qa_status || 'not_run'}</p>
+                  <p className="text-[11px] text-slate-500">{post.objective || 'awareness'} · {post.creative_archetype || 'not specified'} · Evidence: {post.evidence_status || 'unverified'} · QA: {post.visual_qa_status || 'not_run'}</p>
                 </div>
               </div>
             ))}

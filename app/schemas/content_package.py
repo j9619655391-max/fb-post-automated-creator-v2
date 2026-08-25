@@ -14,6 +14,8 @@ class ContentPackageCreate(BaseModel):
     creative_archetype: Optional[str] = Field(default=None, max_length=120)
     source_refs: list[str] = Field(default_factory=list, max_length=40)
     claim_refs: list[str] = Field(default_factory=list, max_length=40)
+    source_ref_ids: list[int] = Field(default_factory=list, max_length=40)
+    claim_ref_ids: list[int] = Field(default_factory=list, max_length=40)
     visual_brief: dict[str, Any] = Field(default_factory=dict)
     asset_provenance: dict[str, Any] = Field(default_factory=dict)
 
@@ -37,6 +39,9 @@ class ContentPackageResponse(BaseModel):
     source_urls: list[str]
     source_refs: list[str] = []
     claim_refs: list[str] = []
+    source_ref_ids: list[int] = []
+    claim_ref_ids: list[int] = []
+    evidence_status: str = "unverified"
     visual_brief: dict = {}
     asset_provenance: dict = {}
     media_variant_ids: list[int]

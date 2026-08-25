@@ -31,7 +31,7 @@ The platform must preserve these invariants across all modules:
 1. **Workspace-first context:** every recommendation, creative, source, caption, and metric must be tied to the active organization/workspace.
 2. **Business/category integrity:** a quote workspace must not receive unrelated product or fashion guidance; product clients must not receive generic motivational content unless explicitly configured.
 3. **Human approval by default:** generation creates a draft for review. It does not publish, schedule, boost, send to Telegram, connect OAuth, or submit for approval without the correct explicit action and confirmation.
-4. **Truthful grounding:** logos, handles, URLs, phone numbers, claims, prices, product details, and sources must come from verified workspace inputs or clearly marked research; the system must not invent them.
+4. **Truthful grounding:** logos, handles, URLs, phone numbers, claims, prices, product details, and sources must come from verified workspace inputs or clearly marked research; the system must not invent them. Approved source and claim IDs are now validated against active workspace records before a package can be marked `verified`.
 5. **Image plus copy:** a complete post package includes a readable image, caption, CTA, hashtags, tags, and platform-specific variants.
    The package also persists separate image text, alt text, objective/archetype, evidence references, asset provenance, and structural visual-QA state for review.
 6. **Language policy:** the workspace’s preferred language and tone must be enforced in prompts, validation, captions, image text, and revisions.
@@ -40,7 +40,8 @@ The platform must preserve these invariants across all modules:
 9. **Auditability:** important mutations and publish attempts must be traceable to a user, workspace, action, status transition, and timestamp.
 10. **Provider isolation:** external publishing is disabled or sandboxed until provider readiness, OAuth state, page/account target, cooldown, and daily cap policies all pass.
 11. **Objective-first creative:** marketing templates must be selected from a verified business objective, audience, funnel stage, and CTA; quote/community layouts must not be presented as product or sales collateral without explicit workspace configuration.
-12. **Production-aware output:** pamphlets and print exports must model trim, bleed, safe areas, fold geometry, QR fallbacks, accessibility text, and printer-specific profiles separately from social-image rendering.
+12. **Production-aware output:** pamphlets and print exports must model trim, bleed, safe areas, fold geometry, QR fallbacks, accessibility text, and printer-specific profiles separately from social-image rendering. The current implementation persists reviewable pamphlet briefs with these fields; production PDF export and QR test evidence remain separate gates.
+13. **Asset provenance:** every non-fallback media asset should record source kind, source URL, license/attribution information, and provenance review status before it is treated as production-ready.
 
 ## Study-document standard
 

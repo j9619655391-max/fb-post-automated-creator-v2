@@ -173,7 +173,8 @@ export default function ContentDetail() {
                   {post.tags.length > 0 && <p className="break-words text-xs text-slate-500">Tags: {post.tags.join(', ')}</p>}
                   <div className="border-t border-indigo-100 pt-2 text-[11px] text-slate-500">
                     <p><strong>Objective:</strong> {post.objective || 'Not specified'} · <strong>Archetype:</strong> {post.creative_archetype || 'Not specified'}</p>
-                    <p><strong>Asset:</strong> {String(post.asset_provenance?.mode || 'Not specified')} · <strong>Visual QA:</strong> {post.visual_qa_status || 'not_run'}</p>
+                    <p><strong>Asset:</strong> {String(post.asset_provenance?.mode || 'Not specified')} · <strong>Evidence:</strong> {post.evidence_status || 'unverified'} · <strong>Visual QA:</strong> {post.visual_qa_status || 'not_run'}</p>
+                    {((post.source_ref_ids || []).length > 0 || (post.claim_ref_ids || []).length > 0) && <p><strong>Evidence IDs:</strong> sources {(post.source_ref_ids || []).join(', ') || 'none'} · claims {(post.claim_ref_ids || []).join(', ') || 'none'}</p>}
                     {(post.source_refs || []).length > 0 && <p className="break-words"><strong>Evidence:</strong> {(post.source_refs || []).join(' · ')}</p>}
                     {(post.claim_refs || []).length > 0 && <p className="break-words"><strong>Claims:</strong> {(post.claim_refs || []).join(' · ')}</p>}
                     {(post.visual_qa_flags || []).length > 0 && <p className="break-words text-amber-700"><strong>QA flags:</strong> {(post.visual_qa_flags || []).join(', ')}</p>}

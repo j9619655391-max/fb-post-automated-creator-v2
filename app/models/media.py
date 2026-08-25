@@ -1,5 +1,6 @@
 """Media model."""
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text
+
 from sqlalchemy.sql import func
 from sqlalchemy.orm import relationship
 
@@ -16,7 +17,12 @@ class Media(Base):
     stored_path = Column(String(512), nullable=False)
     mime_type = Column(String(128), nullable=False)
     file_size = Column(Integer, nullable=False)
-    
+    source_kind = Column(String(40), nullable=False, default="uploaded")
+    source_url = Column(String(2048), nullable=True)
+    license_info = Column(Text, nullable=True)
+    attribution = Column(Text, nullable=True)
+    provenance_status = Column(String(30), nullable=False, default="unverified")
+
     # Ownership
     organization_id = Column(Integer, ForeignKey("organizations.id", ondelete="SET NULL"), nullable=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)

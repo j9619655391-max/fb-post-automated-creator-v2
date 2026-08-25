@@ -93,6 +93,9 @@ export interface CompleteSocialPostPackage {
   tags: string[];
   source_refs?: string[];
   claim_refs?: string[];
+  source_ref_ids?: number[];
+  claim_ref_ids?: number[];
+  evidence_status?: string;
   visual_brief?: Record<string, unknown>;
   asset_provenance?: Record<string, unknown>;
   visual_qa_status?: string;
@@ -107,6 +110,9 @@ export interface CompleteSocialPostComposeRequest extends Omit<BrandedMediaCompo
   caption?: string;
   source_refs?: string[];
   claim_refs?: string[];
+  source_ref_ids?: number[];
+  claim_ref_ids?: number[];
+  evidence_status?: string;
   visual_brief?: Record<string, unknown>;
   asset_provenance?: Record<string, unknown>;
   hashtags: string[];

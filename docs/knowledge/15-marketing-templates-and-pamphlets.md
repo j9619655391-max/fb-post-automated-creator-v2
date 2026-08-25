@@ -195,6 +195,14 @@ The following rules are mandatory:
 
 Approval is not the same as moderation. A creative can be factually grounded but visually unreadable, or visually strong but unsupported. The system should show separate gates for content safety, claims/source grounding, duplicate/fatigue, language, visual fit, accessibility, and human approval.
 
+## Implemented foundation
+
+The current implementation now exposes one objective-to-archetype catalog for service announcements, educational explainers, product showcases, offer cards, case-study/customer proof, behind-the-scenes, seasonal campaigns, quote cards, and collection stories. Each entry declares its objective, template family, and asset requirement. The catalog is available from the local `/organizations/creative-capabilities` endpoint and reports the quality gates that still apply: moderation, duplicate checks, evidence, asset provenance, structural visual QA, and human approval.
+
+Media records now carry `source_kind`, `source_url`, `license_info`, `attribution`, and `provenance_status`. Operators can update this metadata through the local provenance endpoint. The implementation does not silently download stock or AI assets; it provides the ownership and licensing fields needed before such a provider is enabled.
+
+A `PamphletBrief` foundation is also persisted with objective, audience, panel count, paper size, orientation, fold style, trim dimensions, bleed, safe area, QR destination, accessibility text, panel content, draft status, and approval-required state. QR-enabled briefs require an accessibility description. The current route creates and lists reviewable briefs but does not yet export a production PDF or claim that a QR code has been tested.
+
 ## Desired state machine
 
 The proposed state machine applies to both social marketing creatives and pamphlet exports:

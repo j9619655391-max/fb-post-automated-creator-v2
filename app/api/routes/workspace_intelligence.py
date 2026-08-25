@@ -11,6 +11,7 @@ from app.core.database import get_db
 from app.models.organization import OrganizationMember, OrganizationRole
 from app.models.user import User
 from app.models.workspace_intelligence import WorkspaceProfile, WorkspaceSource
+from app.models.workspace_evidence import WorkspaceClaim, WorkspaceClaimSource
 from app.models.content_opportunity import ContentOpportunity
 from app.services.opportunity_service import discover_workspace_opportunities
 from app.services.workspace_intelligence_service import (
@@ -25,6 +26,9 @@ from app.schemas.workspace_intelligence import (
     WorkspaceSourceCreate,
     WorkspaceSourceReview,
     WorkspaceSourceResponse,
+    WorkspaceClaimCreate,
+    WorkspaceClaimReview,
+    WorkspaceClaimResponse,
     ContentOpportunityResponse,
 )
 
@@ -153,6 +157,20 @@ def _source_payload(source: WorkspaceSource) -> dict[str, Any]:
     }
 
 
+def _claim_payload(claim: WorkspaceClaim) -> dict[str, Any]:
+    return {
+        "id": claim.id,
+        "organization_id": claim.organization_id,
+        "claim_text": claim.claim_text,
+        "claim_type": claim.claim_type,
+        "review_status": claim.review_status,
+        "source_ids": [link.source_id for link in claim.evidence_links],
+        "metadata": _json_dict(claim.metadata_json),
+        "created_at": claim.created_at,
+        "updated_at": claim.updated_at,
+    }
+
+
 def _apply_profile(profile: WorkspaceProfile, payload: WorkspaceProfileUpsert) -> None:
     values = payload.model_dump()
     list_fields = {
@@ -193,11 +211,19 @@ def get_workspace_intelligence(
         .order_by(WorkspaceSource.created_at.desc())
         .all()
     )
+    claims = db.query(WorkspaceClaim).filter(WorkspaceClaim.organization_id == org_id).order_by(WorkspaceClaim.created_at.desc()).all()
+    approved_sources = sum(source.review_status == "approved" for source in sources)
+    approved_claims = sum(claim.review_status == "approved" for claim in claims)
+    grounding_status = "ready" if approved_sources and approved_claims else ("sources_ready" if approved_sources else "needs_review")
     return {
         "profile": _profile_payload(profile) if profile else None,
         "sources": [_source_payload(source) for source in sources],
+        "claims": [_claim_payload(claim) for claim in claims],
         "source_count": len(sources),
-        "approved_source_count": sum(source.review_status == "approved" for source in sources),
+        "approved_source_count": approved_sources,
+        "claim_count": len(claims),
+        "approved_claim_count": approved_claims,
+        "grounding_status": grounding_status,
     }
 
 
@@ -249,6 +275,72 @@ def discover_opportunities(
     except Exception as exc:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=f"Opportunity discovery failed: {exc}") from exc
     return [_opportunity_payload(opportunity) for opportunity in opportunities]
+
+
+@router.get("/{org_id}/intelligence/claims", response_model=list[WorkspaceClaimResponse])
+def list_workspace_claims(
+    org_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id)
+    claims = db.query(WorkspaceClaim).filter(WorkspaceClaim.organization_id == org_id).order_by(WorkspaceClaim.created_at.desc()).all()
+    return [_claim_payload(claim) for claim in claims]
+
+
+@router.post("/{org_id}/intelligence/claims", response_model=WorkspaceClaimResponse, status_code=status.HTTP_201_CREATED)
+def add_workspace_claim(
+    org_id: int,
+    payload: WorkspaceClaimCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    sources = []
+    if payload.source_ids:
+        sources = db.query(WorkspaceSource).filter(
+            WorkspaceSource.organization_id == org_id,
+            WorkspaceSource.id.in_(payload.source_ids),
+            WorkspaceSource.is_active.is_(True),
+        ).all()
+        if {source.id for source in sources} != set(payload.source_ids):
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Claim evidence sources must belong to this active workspace")
+    claim = WorkspaceClaim(
+        organization_id=org_id,
+        claim_text=payload.claim_text.strip(),
+        claim_type=payload.claim_type,
+        review_status=payload.review_status,
+        metadata_json=json.dumps(payload.metadata, ensure_ascii=False),
+    )
+    db.add(claim)
+    db.flush()
+    for source in sources:
+        db.add(WorkspaceClaimSource(claim_id=claim.id, source_id=source.id))
+    db.commit()
+    db.refresh(claim)
+    return _claim_payload(claim)
+
+
+@router.post("/{org_id}/intelligence/claims/{claim_id}/review", response_model=WorkspaceClaimResponse)
+def review_workspace_claim(
+    org_id: int,
+    claim_id: int,
+    payload: WorkspaceClaimReview,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    _member_or_403(db, org_id, current_user.id, write=True)
+    claim = db.query(WorkspaceClaim).filter(WorkspaceClaim.id == claim_id, WorkspaceClaim.organization_id == org_id).first()
+    if claim is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Workspace claim not found")
+    claim.review_status = payload.review_status
+    if payload.review_note:
+        metadata = _json_dict(claim.metadata_json)
+        metadata["review_note"] = payload.review_note
+        claim.metadata_json = json.dumps(metadata, ensure_ascii=False)
+    db.commit()
+    db.refresh(claim)
+    return _claim_payload(claim)
 
 
 @router.post("/{org_id}/intelligence/sources", response_model=WorkspaceSourceResponse, status_code=status.HTTP_201_CREATED)
