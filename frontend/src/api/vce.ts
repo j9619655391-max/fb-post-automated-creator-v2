@@ -1,4 +1,4 @@
-import { apiGet } from './client';
+import { apiFetch, apiGet } from './client';
 
 export interface ContentCategory {
   id: number;
@@ -33,5 +33,14 @@ export function generateThemes(
     params: { category_id?: number; category_name?: string; count?: number; organization_id?: number; extra_instruction?: string }
 
 ): Promise<GenerateThemesResponse> {
-  return apiGet<GenerateThemesResponse>('vce/generate-themes', params as Record<string, string | number | undefined>);
+  return apiFetch<GenerateThemesResponse>('vce/generate-themes', {
+    method: 'GET',
+    params: params as Record<string, string | number | undefined>,
+    timeoutMs: 15000,
+  }).catch((error) => {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new Error('Theme generation timed out. You can continue with the selected category and template.');
+    }
+    throw error;
+  });
 }
