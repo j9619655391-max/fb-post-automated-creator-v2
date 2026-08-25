@@ -7,6 +7,7 @@ class GenerateDraftRequest(BaseModel):
     category_id: Optional[int] = None
     category_name: Optional[str] = Field(default=None, max_length=200)
     extra_instruction: Optional[str] = Field(default=None, max_length=2000)
+    background_preset: str = Field(default="midnight-aurora", pattern="^(midnight-aurora|warm-paper|rose-editorial|sunset-glow|minimal-ink|neon-night)$")
     organization_id: Optional[int] = None
     idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=128)
 

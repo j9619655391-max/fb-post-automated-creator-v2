@@ -24,33 +24,71 @@ def run_migrations() -> None:
 
 
 def _seed_categories(db) -> None:
-    """Create default categories/templates independently of user seeding."""
-    if db.query(ContentCategory).first() is not None:
-        return
+    """Create missing business-aware categories/templates without deleting existing data."""
+    definitions = [
+        ("Product Showcase", "product-showcase", 1),
+        ("Collection Launch", "collection-launch", 2),
+        ("Bridal & Occasion", "bridal-occasion", 3),
+        ("Styling Tips", "styling-tips", 4),
+        ("Fabric & Craft", "fabric-craft", 5),
+        ("Behind the Scenes", "behind-the-scenes", 6),
+        ("Customer Story", "customer-story", 7),
+        ("Offer & Booking", "offer-booking", 8),
+        ("Fashion Quote", "fashion-quote", 9),
+        ("Seasonal / Festival", "seasonal-festival", 10),
+        ("Service Showcase", "service-showcase", 20),
+        ("Case Study & Results", "case-study-results", 21),
+        ("Educational / How-to", "educational-howto", 22),
+        ("Industry Insights", "industry-insights", 23),
+        ("Client Story", "client-story", 24),
+        ("Company & Team", "company-culture", 25),
+        ("Love Quotes", "love-quotes", 30),
+        ("Truth Quotes", "truth-quotes", 31),
+        ("Motivational Quotes", "motivational-quotes", 32),
+        ("Pain Quotes", "pain-quotes", 33),
+        ("Motivation", "motivation", 90),
+        ("Tips", "tips", 91),
+        ("Reflection", "reflection", 92),
+    ]
+    categories: dict[str, ContentCategory] = {}
+    for name, slug, sort_order in definitions:
+        category = db.query(ContentCategory).filter(ContentCategory.slug == slug).first()
+        if category is None:
+            category = ContentCategory(name=name, slug=slug, sort_order=sort_order)
+            db.add(category)
+            db.flush()
+        categories[slug] = category
 
-    cat_motivation = ContentCategory(name="Motivation", slug="motivation", sort_order=1)
-    cat_tips = ContentCategory(name="Tips", slug="tips", sort_order=2)
-    cat_reflection = ContentCategory(name="Reflection", slug="reflection", sort_order=3)
-    db.add_all([cat_motivation, cat_tips, cat_reflection])
-    db.flush()
-    db.add_all([
-        HookTemplate(
-            name="Hook + Body + CTA",
-            body_template="{hook}\n\n{body}\n\n{cta}",
-            default_hook="Here's something to think about.",
-            default_cta="What would you add?",
-            category_id=cat_motivation.id,
-            sort_order=1,
-        ),
-        HookTemplate(
-            name="Question hook",
-            body_template="{hook}\n\n{body}\n\n{cta}",
-            default_hook="Did you know?",
-            default_cta="Share if this helped.",
-            category_id=cat_tips.id,
-            sort_order=2,
-        ),
-    ])
+    existing_hooks = {row.name for row in db.query(HookTemplate).all()}
+    hook_definitions = [
+        ("Fashion product showcase", "{hook}\\n\\n{body}\\n\\n{cta}", "Meet the detail that makes this piece special.", "Message us for measurements and availability.", "product-showcase"),
+        ("Collection launch", "{hook}\\n\\n{body}\\n\\n{cta}", "A new look has arrived.", "Book a consultation to explore the collection.", "collection-launch"),
+        ("Styling tip", "{hook}\\n\\n{body}\\n\\n{cta}", "Style note:", "Save this idea and ask us for a custom recommendation.", "styling-tips"),
+        ("Fashion quote", "{hook}\\n\\n{body}\\n\\n{cta}", "A thought for your wardrobe:", "Follow for more fashion inspiration.", "fashion-quote"),
+        ("Hook + Body + CTA", "{hook}\\n\\n{body}\\n\\n{cta}", "Here's something to think about.", "What would you add?", "motivation"),
+        ("Question hook", "{hook}\\n\\n{body}\\n\\n{cta}", "Did you know?", "Share if this helped.", "tips"),
+        ("Service showcase", "{hook}\\n\\n{body}\\n\\n{cta}", "A practical solution for your next business goal:", "Talk to us about your requirements.", "service-showcase"),
+        ("Case study result", "{hook}\\n\\n{body}\\n\\n{cta}", "What changed for this client:", "Ask us how we can help.", "case-study-results"),
+        ("Educational how-to", "{hook}\\n\\n{body}\\n\\n{cta}", "A useful idea for your work:", "Save this for later.", "educational-howto"),
+        ("Industry insight", "{hook}\\n\\n{body}\\n\\n{cta}", "What this means for businesses today:", "Share your perspective.", "industry-insights"),
+        ("Client story", "{hook}\\n\\n{body}\\n\\n{cta}", "A client perspective:", "Message us to discuss your goal.", "client-story"),
+        ("Company culture", "{hook}\\n\\n{body}\\n\\n{cta}", "Behind the work:", "Meet the team behind the solution.", "company-culture"),
+        ("Hinglish Love Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Pyaar ki ek baat:", "Agar dil ko laga, kisi apne ke saath share karo.", "love-quotes"),
+        ("Hinglish Truth Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Zindagi ka sach:", "Aap is baat se agree karte ho?", "truth-quotes"),
+        ("Hinglish Motivation Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Aaj ka reminder:", "Save karo aur jab zaroorat ho tab dobara padho.", "motivational-quotes"),
+        ("Hinglish Pain Quote", "{hook}\\n\\n{body}\\n\\n{cta}", "Kabhi kabhi dard bhi kuch sikhata hai:", "Agar relate karte ho, apni feeling comment mein likho.", "pain-quotes"),
+    ]
+    for name, body_template, default_hook, default_cta, slug in hook_definitions:
+        if name in existing_hooks:
+            continue
+        db.add(HookTemplate(
+            name=name,
+            body_template=body_template,
+            default_hook=default_hook,
+            default_cta=default_cta,
+            category_id=categories[slug].id,
+            sort_order=categories[slug].sort_order,
+        ))
 
 
 def create_sample_data() -> None:

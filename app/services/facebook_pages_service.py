@@ -34,7 +34,8 @@ def sync_pages(db: Session, user_id: int) -> int:
     """
     user_token = _get_user_token(db, user_id)
     url = f"{META_GRAPH_BASE}/me/accounts"
-    params = {"access_token": user_token, "fields": "id,name,access_token,category"}
+    params = {"access_token": user_token, "fields": "id,name,access_token,category,instagram_business_account"}
+
     try:
         with httpx.Client() as client:
             resp = client.get(url, params=params)
@@ -65,7 +66,9 @@ def sync_pages(db: Session, user_id: int) -> int:
         if existing:
             existing.page_name = p.get("name")
             existing.category = p.get("category")
+            existing.instagram_business_account_id = (p.get("instagram_business_account") or {}).get("id")
             existing.access_token_encrypted = encrypted
+
         else:
             db.add(
                 MetaPage(
@@ -73,7 +76,9 @@ def sync_pages(db: Session, user_id: int) -> int:
                     page_id=page_id,
                     page_name=p.get("name"),
                     category=p.get("category"),
+                    instagram_business_account_id=(p.get("instagram_business_account") or {}).get("id"),
                     access_token_encrypted=encrypted,
+
                 )
             )
         count += 1

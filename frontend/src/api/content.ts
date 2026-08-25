@@ -1,4 +1,5 @@
 import { apiGet, apiPost, apiPatch, apiDelete } from './client';
+import type { ContentPackage } from './contentPackages';
 
 export interface ContentPublishStatus {
   meta_page_id?: number | null;
@@ -13,6 +14,7 @@ export interface Content {
   title: string;
   body: string;
   status: string;
+  organization_id?: number | null;
   created_by_id: number;
   approved_by_id: number | null;
   created_at: string;
@@ -57,6 +59,10 @@ export function listContent(params?: { skip?: number; limit?: number; status?: s
 
 export function getContent(id: number): Promise<Content> {
   return apiGet<Content>(`content/${id}`);
+}
+
+export function listContentPackages(contentId: number, organizationId: number): Promise<ContentPackage[]> {
+  return apiGet<ContentPackage[]>(`content/${contentId}/packages`, { organization_id: organizationId });
 }
 
 export function createContent(data: ContentCreate): Promise<Content> {

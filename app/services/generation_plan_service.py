@@ -4,7 +4,9 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.models.content import Content
 from app.models.generation_plan import (
+
     ApprovalMode,
     ContentGenerationPlan,
     GenerationPlanStatus,
@@ -13,6 +15,7 @@ from app.models.generation_plan import (
 from app.services.content_generation_service import GenerationProviderError, generate_and_persist_draft
 
 from app.services.content_service import ContentService
+from app.services.risk_policy_service import assess_content_risk, autopilot_decision, get_or_create_policy
 
 
 logger = logging.getLogger(__name__)
@@ -114,9 +117,27 @@ def run_plan(db: Session, plan: ContentGenerationPlan) -> ContentGenerationPlan:
     """Run one due plan occurrence and advance its cursor after a durable result."""
     if plan.status != GenerationPlanStatus.ACTIVE or not plan.active:
         return plan
+    if plan.organization_id:
+        policy = get_or_create_policy(db, plan.organization_id)
+        if policy.emergency_stop:
+            raise ValueError("Workspace emergency stop is active")
+        start_of_day = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        generated_today = (
+            db.query(Content)
+            .filter(
+                Content.organization_id == plan.organization_id,
+                Content.generated_by_ai.is_(True),
+                Content.created_at >= start_of_day,
+            )
+            .count()
+        )
+        if generated_today >= policy.max_daily_generated_drafts:
+            raise ValueError("Workspace daily generated-draft cap reached")
     run_at = plan.next_run_at
+
     idempotency_key = f"generation-plan:{plan.id}:{run_at.isoformat()}"
-    generate_and_persist_draft(
+    job = generate_and_persist_draft(
+
         db,
         plan.created_by_id,
         category_id=plan.category_id,
@@ -125,7 +146,14 @@ def run_plan(db: Session, plan: ContentGenerationPlan) -> ContentGenerationPlan:
         organization_id=plan.organization_id,
         idempotency_key=idempotency_key,
     )
+    if plan.organization_id and getattr(job, "content", None) is not None:
+        assess_content_risk(job.content)
+        # Controlled mode only grants a policy decision; it never bypasses the
+        # approval-required status or directly invokes a social publisher.
+        autopilot_decision(db, plan.organization_id, job.content)
+        db.flush()
     plan.failure_count = 0
+
     plan.last_provider = None
     plan.last_error_code = None
     plan.last_error_message = None

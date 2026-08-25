@@ -20,7 +20,11 @@ export default function OrganizationSwitcher() {
                     value={currentOrg?.id || ''}
                     onChange={(e) => {
                         const org = organizations.find(o => o.id === parseInt(e.target.value));
-                        if (org) setCurrentOrg(org);
+                                                if (org) {
+                            window.localStorage.setItem('active_org_id', String(org.id));
+                            setCurrentOrg(org);
+                        }
+
                     }}
                     className="w-full bg-slate-50 border-slate-200 text-slate-900 text-xs font-black rounded-xl py-2.5 pl-4 pr-10 appearance-none focus:ring-2 focus:ring-indigo-100 transition-all cursor-pointer group-hover:bg-white group-hover:border-indigo-200"
                 >

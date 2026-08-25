@@ -16,7 +16,9 @@ class MetaPage(Base):
     page_id = Column(String(64), nullable=False, index=True)  # Meta Page ID
     page_name = Column(String(255), nullable=True)
     category = Column(String(128), nullable=True)
+    instagram_business_account_id = Column(String(64), nullable=True, index=True)
     access_token_encrypted = Column(Text, nullable=False)
+
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

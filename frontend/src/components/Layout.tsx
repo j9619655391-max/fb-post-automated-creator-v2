@@ -27,8 +27,8 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col bg-slate-50">
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between gap-8">
-          <div className="flex items-center gap-6 flex-1">
+        <div className="max-w-7xl mx-auto w-full min-w-0 px-4 py-4 flex flex-col gap-3">
+          <div className="flex w-full min-w-0 items-center justify-between gap-4">
             <Link to="/" className="font-black text-xl tracking-tighter text-slate-900 flex items-center gap-2 flex-shrink-0">
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
@@ -43,13 +43,16 @@ export default function Layout() {
             )}
           </div>
           {!isLogin && location.pathname !== '/signup' && (
-            <nav className="flex items-center gap-1">
+            <nav className="flex w-full min-w-0 flex-wrap items-center gap-1 border-t border-slate-100 pt-3">
               {[
                 { to: '/', label: 'DASHBOARD' },
                 { to: '/calendar', label: 'SCHEDULER' },
                 { to: '/automation-plans', label: 'AUTOPILOT' },
                 { to: '/content', label: 'PRODUCTION' },
-                { to: '/insights', label: 'ANALYTICS' },
+                                { to: '/insights', label: 'ANALYTICS' },
+                { to: '/roadmap-controls', label: 'OPERATIONS' },
+                { to: '/creative-studio', label: 'STUDIO' },
+
                 { to: '/platforms', label: 'NETWORK' },
                                 { to: '/organizations', label: 'WORKSPACE' },
                 { to: '/workspace-intelligence', label: 'KNOWLEDGE' },
@@ -107,7 +110,7 @@ export default function Layout() {
           )}
         </div>
       </header>
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-8">
+      <main className="flex-1 min-w-0 max-w-7xl w-full mx-auto px-4 py-8 overflow-x-clip">
         <Outlet />
       </main>
     </div>

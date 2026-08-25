@@ -1,8 +1,47 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+
+const BUSINESS_OBJECTIVES = [
+  { value: 'service-showcase', label: 'Service showcase', guidance: 'Explain one verified service, solution, or offer and invite a qualified inquiry.' },
+  { value: 'case-study-results', label: 'Case study / results', guidance: 'Use an approved client story, project, or outcome without inventing metrics.' },
+  { value: 'educational-howto', label: 'Educational / how-to', guidance: 'Teach a practical idea connected to the selected business and its audience.' },
+  { value: 'industry-insights', label: 'Industry insight', guidance: 'Connect a verified trend, research point, or public source to the business context.' },
+  { value: 'client-story', label: 'Client story', guidance: 'Share an approved client/customer experience without inventing testimonials or outcomes.' },
+  { value: 'company-culture', label: 'Company / team', guidance: 'Show the people, process, or culture behind the business using approved facts.' },
+  { value: 'product-showcase', label: 'Product showcase', guidance: 'Show a specific suit, garment, fabric, cut, embroidery, or design detail and invite an inquiry.' },
+  { value: 'collection-launch', label: 'Collection launch', guidance: 'Introduce a new collection or seasonal line with a clear fashion-led story and booking CTA.' },
+  { value: 'bridal-occasion', label: 'Bridal & occasion wear', guidance: 'Highlight bridal, partywear, ceremony, or event styling with consultation and custom-order intent.' },
+  { value: 'styling-tips', label: 'Styling advice', guidance: 'Give a practical styling idea connected to suits, fabrics, colors, fit, or accessories.' },
+  { value: 'fabric-craft', label: 'Fabric & craftsmanship', guidance: 'Explain fabric quality, tailoring, finishing, embroidery, or the craft behind the design.' },
+  { value: 'customer-story', label: 'Customer proof', guidance: 'Use an approved customer experience or testimonial angle without inventing a claim.' },
+  { value: 'offer-booking', label: 'Offer / consultation booking', guidance: 'Drive WhatsApp, phone, website, or in-store consultation inquiries using only configured facts.' },
+  { value: 'fashion-quote', label: 'Fashion quote card', guidance: 'Create an aspirational fashion quote tied to personal style, confidence, craftsmanship, or the brand story—not generic life motivation.' },
+  { value: 'love-quotes', label: 'Love quotes', guidance: 'Create a relatable Hinglish love quote for the image and a heartfelt caption without fake attributions.' },
+  { value: 'truth-quotes', label: 'Truth quotes', guidance: 'Create a concise Hinglish reality/truth quote with an honest, reflective caption.' },
+  { value: 'motivational-quotes', label: 'Motivational quotes', guidance: 'Create an uplifting Hinglish motivation quote with a practical, hopeful caption.' },
+  { value: 'pain-quotes', label: 'Pain quotes', guidance: 'Create an empathetic Hinglish pain/healing quote without glorifying harm or making a mental-health diagnosis.' },
+];
+
+const VISUAL_TEMPLATES = [
+  { value: 'fashion-editorial', label: 'Fashion editorial', guidance: 'Premium image-led layout with generous negative space, elegant serif/sans pairing, and a restrained footer.' },
+  { value: 'product-catalog', label: 'Product catalog', guidance: 'Product-first layout with name, fabric/design detail, availability or custom-order cue, and contact CTA.' },
+  { value: 'quote-card', label: 'Quote card', guidance: 'Large quote hierarchy with quotation mark, highlighted keywords, logo/handle, and website or WhatsApp footer.' },
+  { value: 'collection-story', label: 'Collection story', guidance: 'Multi-zone composition for collection name, inspiration, hero image, design detail, and consultation CTA.' },
+];
+
+type QuoteBackgroundValue = 'midnight-aurora' | 'warm-paper' | 'rose-editorial' | 'sunset-glow' | 'minimal-ink' | 'neon-night';
+
+const QUOTE_BACKGROUNDS = [
+  { value: 'midnight-aurora', label: 'Midnight Aurora', description: 'Deep navy, soft glow, gold quote mark', swatch: 'linear-gradient(135deg,#111827,#030712 65%,#ec4899)' },
+  { value: 'warm-paper', label: 'Warm Paper', description: 'Cream paper, terracotta accent, healing tone', swatch: 'linear-gradient(135deg,#fff7ed,#fed7aa 58%,#c2410c)' },
+  { value: 'rose-editorial', label: 'Rose Editorial', description: 'Plum field, rose panel, premium emotion', swatch: 'linear-gradient(135deg,#4a044e,#831843 62%,#f9a8d4)' },
+  { value: 'sunset-glow', label: 'Sunset Glow', description: 'Coral, saffron and plum motivation', swatch: 'linear-gradient(135deg,#fb7185,#f59e0b 52%,#581c87)' },
+  { value: 'minimal-ink', label: 'Minimal Ink', description: 'Off-white, dark serif, generous whitespace', swatch: 'linear-gradient(135deg,#fafaf9,#ffffff 60%,#f59e0b)' },
+  { value: 'neon-night', label: 'Neon Night', description: 'Charcoal with cyan and pink geometry', swatch: 'linear-gradient(135deg,#111827,#06b6d4 55%,#ec4899)' },
+] as const;
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createContent, updateContent, getContent } from '../api/content';
-import { getCategories, generateThemes, type ContentCategory } from '../api/vce';
+import { getCategories, getRecommendedCategory, generateThemes, type ContentCategory } from '../api/vce';
 import { listPages, type MetaPage } from '../api/metaPages';
 import { listLinkedInAccounts, type LinkedInAccount } from '../api/platforms';
 import { uploadMedia } from '../api/media';
@@ -27,7 +66,16 @@ export default function ContentForm() {
   // Automation: category → themes → load into form (new content only)
   const [categories, setCategories] = useState<ContentCategory[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<ContentCategory | null>(null);
+  const [categoryReason, setCategoryReason] = useState('');
+  const [categoryEvidence, setCategoryEvidence] = useState<string[]>([]);
+
+  const [businessObjective, setBusinessObjective] = useState('product-showcase');
+  const [visualTemplate, setVisualTemplate] = useState('fashion-editorial');
+  const [backgroundPreset, setBackgroundPreset] = useState<QuoteBackgroundValue>('midnight-aurora');
+  const [confirmGenerationOpen, setConfirmGenerationOpen] = useState(false);
+  const [generationConfirmed, setGenerationConfirmed] = useState(false);
   const [themes, setThemes] = useState<string[]>([]);
+
   const [themesLoading, setThemesLoading] = useState(false);
   const [themeError, setThemeError] = useState('');
 
@@ -56,9 +104,7 @@ export default function ContentForm() {
         setTitle(c.title);
         setBody(c.body);
         setMediaId(c.media_id || null);
-        // If content has media_id, we should ideally fetch its URL if not provided by response
-        // In our case ContentResponse includes media_id, but maybe not the URL yet? 
-        // Our backend ContentResponse schema shows media_id: Optional[int].
+        setMediaUrl(c.media?.url || null);
         setLoaded(true);
       })
       .catch(() => { setError('Content not found'); setLoaded(true); });
@@ -66,11 +112,68 @@ export default function ContentForm() {
 
   // Load categories and pages when creating new content
   useEffect(() => {
-    if (isEdit || !isAuthenticated) return;
-    getCategories().then(setCategories).catch(() => setCategories([]));
-    listPages(currentOrg?.id).then(setPages).catch(() => setPages([]));
+    if (isEdit || !isAuthenticated || !currentOrg?.id) return;
+    let cancelled = false;
+    setSelectedCategory(null);
+    setCategoryReason('Loading workspace recommendation...');
+    setCategoryEvidence([]);
+    Promise.all([getCategories(currentOrg.id), getRecommendedCategory(currentOrg.id)])
+      .then(([items, recommendation]) => {
+        if (cancelled) return;
+        setCategories(items);
+        setSelectedCategory(recommendation.category);
+        setCategoryReason(recommendation.reason || 'Recommended from this workspace profile and source context.');
+        setCategoryEvidence(recommendation.evidence_terms || []);
+        const objectiveByCategory: Record<string, string> = {
+          'product-showcase': 'product-showcase',
+          'collection-launch': 'collection-launch',
+          'bridal-occasion': 'bridal-occasion',
+          'styling-tips': 'styling-tips',
+          'fabric-craft': 'fabric-craft',
+          'customer-story': 'customer-story',
+          'offer-booking': 'offer-booking',
+          'service-showcase': 'service-showcase',
+          'case-study-results': 'case-study-results',
+          'educational-howto': 'educational-howto',
+          'industry-insights': 'industry-insights',
+          'client-story': 'client-story',
+          'company-culture': 'company-culture',
+          'love-quotes': 'love-quotes',
+          'truth-quotes': 'truth-quotes',
+          'motivational-quotes': 'motivational-quotes',
+          'pain-quotes': 'pain-quotes',
+        };
+        const templateByCategory: Record<string, string> = {
+          'love-quotes': 'quote-card',
+          'truth-quotes': 'quote-card',
+          'motivational-quotes': 'quote-card',
+          'pain-quotes': 'quote-card',
+        };
+        const suggestedObjective = objectiveByCategory[recommendation.category.slug];
+        if (suggestedObjective) setBusinessObjective(suggestedObjective);
+        const suggestedTemplate = templateByCategory[recommendation.category.slug];
+        if (suggestedTemplate) setVisualTemplate(suggestedTemplate);
+        const backgroundByCategory: Record<string, QuoteBackgroundValue> = {
+          'love-quotes': 'rose-editorial',
+          'truth-quotes': 'minimal-ink',
+          'motivational-quotes': 'sunset-glow',
+          'pain-quotes': 'warm-paper',
+        };
+        const suggestedBackground = backgroundByCategory[recommendation.category.slug];
+        if (suggestedBackground) setBackgroundPreset(suggestedBackground);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCategories([]);
+          setSelectedCategory(null);
+          setCategoryReason('Could not load the workspace category recommendation.');
+        }
+      });
+
+    listPages(currentOrg.id).then(setPages).catch(() => setPages([]));
     listLinkedInAccounts().then(setLinkedinAccounts).catch(() => setLinkedinAccounts([]));
-  }, [isEdit, isAuthenticated, currentOrg]);
+    return () => { cancelled = true; };
+  }, [isEdit, isAuthenticated, currentOrg?.id]);
 
   // Auto-generate themes when category is selected (new content only)
   useEffect(() => {
@@ -80,7 +183,16 @@ export default function ContentForm() {
     }
     setThemeError('');
     setThemesLoading(true);
-    generateThemes({ category_id: selectedCategory.id, count: 8 })
+    const objective = BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective);
+
+    const template = VISUAL_TEMPLATES.find((item) => item.value === visualTemplate);
+    generateThemes({
+      category_id: selectedCategory.id,
+      count: 8,
+      organization_id: currentOrg?.id,
+      extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Visual template: ${template?.guidance ?? visualTemplate}.`,
+    })
+
       .then((res) => {
         if (res.available && res.themes.length) setThemes(res.themes);
         else if (!res.available) setThemeError('Theme generation not configured (add GEMINI_API_KEY).');
@@ -88,7 +200,7 @@ export default function ContentForm() {
       })
       .catch(() => setThemeError('Could not generate themes.'))
       .finally(() => setThemesLoading(false));
-  }, [isEdit, isAuthenticated, selectedCategory?.id]);
+  }, [isEdit, isAuthenticated, selectedCategory?.id, businessObjective, visualTemplate, currentOrg?.id]);
 
   function loadThemeIntoForm(theme: string) {
     setTitle(theme);
@@ -112,21 +224,35 @@ export default function ContentForm() {
     }
   }
 
-  async function handleGenerateDraft() {
+  function handleGenerateDraft() {
     if (isEdit) return;
+    setError('');
+    setGenerationConfirmed(false);
+    setConfirmGenerationOpen(true);
+  }
+
+  async function confirmAndGenerateDraft() {
+    if (isEdit || !generationConfirmed) return;
     setGeneratingDraft(true);
     setError('');
     try {
+      const objective = BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective);
+      const template = VISUAL_TEMPLATES.find((item) => item.value === visualTemplate);
+      const background = QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset);
       const generated = await generateDraft({
         category_id: selectedCategory?.id,
         category_name: selectedCategory?.name,
         organization_id: currentOrg?.id,
+        background_preset: backgroundPreset,
+        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Creative template: ${template?.guidance ?? visualTemplate}. Background direction: ${background?.description ?? backgroundPreset}. Follow the selected workspace language and category. Keep the content image-led, Hinglish where configured, and do not switch to unrelated generic content.`,
       });
+
       navigate(`/content/${generated.id}/edit`, { replace: true });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not generate a draft');
     } finally {
       setGeneratingDraft(false);
+      setConfirmGenerationOpen(false);
     }
   }
 
@@ -209,9 +335,9 @@ export default function ContentForm() {
 
   return (
     <div className="max-w-6xl mx-auto">
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex min-w-0 flex-col xl:flex-row gap-8">
         {/* Left Column: Form */}
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold text-slate-900 mb-6">{isEdit ? 'Edit content' : 'New content'}</h1>
           {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
@@ -234,7 +360,59 @@ export default function ContentForm() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-              {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Run the app with DB seed (Docker or init_db) to get Motivation, Tips, Reflection.</p>}
+                            {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Restart the local app once to seed business-aware fashion categories.</p>}
+              {selectedCategory && <p className="mb-3 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs text-indigo-800"><strong>Workspace recommendation:</strong> {categoryReason}{categoryEvidence.length > 0 && ` Evidence: ${categoryEvidence.join(', ')}.`}</p>}
+              <div className="grid md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Business objective</label>
+                  <select
+                    value={businessObjective}
+                    onChange={(e) => setBusinessObjective(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
+                  >
+                    {BUSINESS_OBJECTIVES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">{BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective)?.guidance}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Creative template family</label>
+                  <select
+                    value={visualTemplate}
+                    onChange={(e) => setVisualTemplate(e.target.value)}
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
+                  >
+                    {VISUAL_TEMPLATES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
+                  </select>
+                  <p className="text-xs text-slate-500 mt-1">{VISUAL_TEMPLATES.find((item) => item.value === visualTemplate)?.guidance}</p>
+                </div>
+              </div>
+              {visualTemplate === 'quote-card' && (
+                <div className="mb-4 rounded-xl border border-indigo-200 bg-white p-4">
+                  <div className="flex items-center justify-between gap-3 mb-3">
+                    <div>
+                      <h3 className="text-sm font-semibold text-slate-900">Choose background template</h3>
+                      <p className="text-xs text-slate-500 mt-1">Preview and approve the visual direction before any image or draft is created.</p>
+                    </div>
+                    <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700">{QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label}</span>
+                  </div>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                    {QUOTE_BACKGROUNDS.map((item) => (
+                      <button
+                        key={item.value}
+                        type="button"
+                        onClick={() => setBackgroundPreset(item.value)}
+                        className={`overflow-hidden rounded-lg border text-left transition ${backgroundPreset === item.value ? 'border-indigo-600 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
+                      >
+                        <span className="block h-12" style={{ background: item.swatch }} />
+                        <span className="block px-2 py-1.5">
+                          <span className="block text-xs font-semibold text-slate-900">{item.label}</span>
+                          <span className="block text-[10px] leading-tight text-slate-500 mt-0.5">{item.description}</span>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="flex flex-wrap gap-2 mb-3">
                 <button
                   type="button"
@@ -242,8 +420,9 @@ export default function ContentForm() {
                   disabled={generatingDraft || !isAuthenticated}
                   className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50"
                 >
-                  {generatingDraft ? 'Generating draft...' : 'Generate complete draft'}
+                  {generatingDraft ? 'Generating draft...' : 'Review & confirm generation'}
                 </button>
+                <span className="self-center text-xs text-slate-500">No image or draft is created until confirmation.</span>
               </div>
               {themesLoading && <p className="text-indigo-600 text-sm font-medium mb-2">Generating themes...</p>}
               {themeError && <p className="text-amber-700 text-sm mb-2">{themeError}</p>}
@@ -267,12 +446,33 @@ export default function ContentForm() {
             </div>
           )}
 
+          {confirmGenerationOpen && (
+            <div className="mb-8 rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm" role="dialog" aria-modal="true" aria-labelledby="confirm-generation-title">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Final creative check</p>
+                  <h2 id="confirm-generation-title" className="mt-1 text-lg font-semibold text-amber-950">Confirm before creating the image</h2>
+                  <p className="mt-2 text-sm leading-relaxed text-amber-900">This will create exactly one unscheduled draft for <strong>{currentOrg?.name || 'the selected workspace'}</strong> using <strong>{selectedCategory?.name || 'the selected category'}</strong>, <strong>{QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label}</strong>, and the <strong>{visualTemplate}</strong> layout. It will not publish, schedule, boost, send to Telegram, or submit for approval.</p>
+                </div>
+                <button type="button" onClick={() => setConfirmGenerationOpen(false)} className="rounded-md px-2 py-1 text-amber-800 hover:bg-amber-100" aria-label="Close confirmation">Close</button>
+              </div>
+              <label className="mt-4 flex items-start gap-2 text-sm text-amber-950">
+                <input type="checkbox" checked={generationConfirmed} onChange={(event) => setGenerationConfirmed(event.target.checked)} className="mt-1" />
+                <span>I reviewed the category, quote style, background template, and language direction. Create one draft image package now.</span>
+              </label>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button type="button" onClick={confirmAndGenerateDraft} disabled={!generationConfirmed || generatingDraft} className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50">{generatingDraft ? 'Creating one draft...' : 'Confirm & create one draft'}</button>
+                <button type="button" onClick={() => setConfirmGenerationOpen(false)} className="rounded-lg border border-amber-300 px-4 py-2 text-sm font-semibold text-amber-900 hover:bg-amber-100">Cancel — create nothing</button>
+              </div>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-4">
             {!isEdit && (
               <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 space-y-3">
                 <h3 className="text-sm font-semibold text-slate-800">Schedule for (optional)</h3>
                 <p className="text-xs text-slate-600">After approval, this content will be published to the selected page at the chosen time.</p>
-                <div className="flex flex-wrap gap-4 items-end">
+                <div className="flex min-w-0 flex-wrap gap-4 items-end">
                   <div>
                     <label htmlFor="schedule_platform" className="block text-xs font-medium text-slate-600 mb-1">Platform</label>
                     <select
@@ -310,7 +510,7 @@ export default function ContentForm() {
                         id="schedule_target"
                         value={scheduleLinkedInAccountId === '' ? '' : scheduleLinkedInAccountId}
                         onChange={(e) => setScheduleLinkedInAccountId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm min-w-[220px]"
+                        className="w-full max-w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                       >
                         <option value="">Select LinkedIn account...</option>
                         {linkedinAccounts.map((account) => (
@@ -322,7 +522,7 @@ export default function ContentForm() {
                         id="schedule_target"
                         value={schedulePageId === '' ? '' : schedulePageId}
                         onChange={(e) => setSchedulePageId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-sm min-w-[220px]"
+                        className="w-full max-w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                       >
                         <option value="">Select page...</option>
                         {pages.map((p) => (
@@ -466,7 +666,7 @@ export default function ContentForm() {
         </div>
 
         {/* Right Column: Live Facebook Preview */}
-        <div className="lg:w-[450px] flex-shrink-0">
+        <div className="w-full min-w-0 xl:w-[450px] xl:flex-shrink-0">
           <div className="sticky top-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest">Post Preview</h2>
@@ -502,7 +702,7 @@ export default function ContentForm() {
                         : (schedulePageId ? pages.find(p => p.id === schedulePageId)?.page_name : 'Drafting Page')}
                     </div>
                     <div className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                      Sponsored · <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 16 16"><path d="M8 0a8 8 0 1 0 8 8A8 8 0 0 0 8 0zM4.5 7.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1H5a.5.5 0 0 1-.5-.5z" /></svg>
+                      Draft preview · <span className="text-[10px] font-bold uppercase tracking-wide text-slate-400">Organic post</span>
                     </div>
                   </div>
                 </div>
@@ -562,7 +762,7 @@ export default function ContentForm() {
               <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-emerald-200/20 rounded-full blur-2xl group-hover:bg-emerald-300/30 transition-all duration-700"></div>
               <p className="font-black uppercase tracking-widest text-[10px] text-emerald-600 mb-2">Editor Intelligence</p>
               <p className="font-medium relative z-10">
-                Your post will be published exactly as shown in this preview. Use <span className="text-indigo-600 font-bold">"Create with AI"</span> to generate high-engagement hooks and formatting optimized for Meta's algorithm.
+                This is an organic post draft preview. It will not publish until you save it and pass the existing human approval workflow. Use <span className="text-indigo-600 font-bold">"Create with AI"</span> to generate business-aware copy for the selected workspace.
               </p>
             </div>
           </div>

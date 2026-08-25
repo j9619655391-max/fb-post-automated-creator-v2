@@ -9,8 +9,10 @@ from app.api.dependencies import get_current_user
 
 from app.core.database import get_db
 from app.models.user import User
+from app.models.media import Media
 from app.schemas.content import ContentResponse
 from app.schemas.generation import GenerateDraftRequest
+from app.services.media_service import MediaService
 from app.services.content_generation_service import (
     GenerationProviderError,
     GenerationValidationError,
@@ -70,6 +72,7 @@ def generate_draft(
             category_id=request.category_id,
             category_name=request.category_name,
             extra_instruction=request.extra_instruction,
+            background_preset=request.background_preset,
             organization_id=request.organization_id,
             idempotency_key=request.idempotency_key,
         )
@@ -85,4 +88,8 @@ def generate_draft(
     content = job.content
     if content is None:
         raise HTTPException(status_code=409, detail="Generation job did not produce a draft")
+    if content.media_id and content.media is None:
+        content.media = db.query(Media).filter(Media.id == content.media_id).first()
+    if content.media:
+        content.media.url = MediaService(db).get_public_url(content.media)
     return content

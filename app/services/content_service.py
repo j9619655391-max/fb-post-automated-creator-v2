@@ -7,6 +7,7 @@ from app.models.content import Content, ContentStatus
 from app.models.scheduled_post import ScheduledPlatform
 from app.schemas.content import ContentCreate, ContentUpdate, ContentApprovalRequest
 from app.services.audit_service import AuditService
+from app.services.risk_policy_service import assess_content_risk
 
 
 class ContentService:
@@ -97,7 +98,9 @@ class ContentService:
             schedule_linkedin_account_id=getattr(content_data, "schedule_linkedin_account_id", None),
             media_id=getattr(content_data, "media_id", None),
         )
+        assess_content_risk(content)
         self.db.add(content)
+
         # Flush to get content.id for audit log
         self.db.flush()
         
@@ -168,10 +171,13 @@ class ContentService:
         for field, value in update_data.items():
             setattr(content, field, value)
         
+        assess_content_risk(content)
+
         # Audit log (added to same transaction)
         self.audit.log_action(
             db=self.db,
             action="content.updated",
+
             entity_type="content",
             entity_id=content.id,
             user_id=user_id,
@@ -196,8 +202,11 @@ class ContentService:
         if content.status != ContentStatus.DRAFT:
             raise ValueError("Only draft content can be submitted for approval")
         
+        assess_content_risk(content)
+        if content.risk_tier == "critical":
+            raise ValueError("Content requires policy review before approval submission")
         content.status = ContentStatus.PENDING_APPROVAL
-        
+
         # Audit log (added to same transaction)
         self.audit.log_action(
             db=self.db,

@@ -129,3 +129,76 @@ Official sandbox prerequisites and links are recorded in `docs/PROVIDER_SANDBOX_
 Added an authenticated `GET /api/v1/platforms/sandbox-readiness` endpoint and Platforms UI card for non-publishing provider validation. When credentials are absent, it reports configuration gaps without making network calls. When an account is connected, it performs only safe read-only identity checks: Meta `/me/accounts` and LinkedIn `/v2/userinfo`. Instagram is explicitly reported as blocked until professional-account linkage and an Instagram account identifier are persisted; no publish endpoint is called.
 
 The local route smoke test returned the expected unauthenticated `401`. The complete backend suite now passes with **41 tests**, Python compilation passed, frontend production build passed, Alembic reports no drift, and the local Docker stack remains operational. No Facebook, Instagram, or LinkedIn post was created.
+
+
+## Production-readiness checkpoint: provider account modeling
+
+Provider account modeling now persists the Instagram professional-account linkage returned by Meta `/me/accounts` and exposes it safely in Meta Page responses. Instagram publishing prefers the persisted professional-account ID and uses the encrypted user access token required by the Instagram Graph API. Instagram readiness now reports the number of linked professional accounts instead of treating every Meta Page as Instagram-ready.
+
+LinkedIn account synchronization now discovers approved organization roles through the `organizationAcls` API and persists the role and state. Organization publishing is permission-gated: only approved administrator/content-admin roles can publish on behalf of an organization. The LinkedIn API version and OAuth scopes are configurable, and Meta OAuth scopes now include the Instagram permissions required for professional-account discovery and publishing.
+
+The provider-account migration is `f6a7b8c9d0e1_add_provider_account_metadata.py`. Local PostgreSQL validation passed after applying it. The provider synchronization tests pass (**2 focused tests**), the complete backend suite passes (**43 tests**), Python compilation passes, frontend production build passes, `alembic check` reports no drift, and the Docker API root returns HTTP 200. No external social post was created or published during validation.
+
+The remaining live-provider boundary is unchanged: real Meta/Instagram and LinkedIn credentials, approved callbacks, connected test accounts, public media URLs, and operator-approved sandbox publishing are required before E2E publishing validation. Human approval remains the default safety gate.
+
+
+Instagram controlled publishing now performs Meta's rolling content-publishing-limit preflight before creating a container, then polls `status_code` with a bounded configurable window and only calls `media_publish` after `FINISHED` or `PUBLISHED`. `ERROR`, `EXPIRED`, unknown states, exhausted polling, and quota exhaustion are surfaced through the existing publishing failure classifier and approval-required worker safeguards. The focused provider suite now covers Meta linkage, LinkedIn organization discovery, and the `IN_PROGRESS` to `FINISHED` Instagram path.
+
+
+## Expanded content creator checkpoint
+
+The workspace intelligence profile now includes Brand Brain fields for tagline, visual style, brand colors, font preferences, preferred content formats, logo media reference, Telegram approval destination, approval-required state, and content preferences. A workspace theme model and CRUD API now support reusable named visual directions, palettes, logo placement, background style, and supported formats.
+
+Fresh content opportunity discovery now supports configured RSS sources, optional News API search, and OpenAlex research search. Opportunities persist source URL, publisher, source date, freshness score, relevance score, trust score, and metadata. The UI exposes a manual discovery action and source links; discovery is evidence collection only and does not copy articles automatically.
+
+Source-grounded content packages now persist platform-specific Facebook, Instagram, and LinkedIn variants linked to an optional theme and opportunity. The initial package adapter preserves provenance and platform-specific caption/CTA differences. Telegram approval infrastructure now persists approval requests, sends inline Accept/Reject messages, captures rejection-note replies, creates revision lineage, and polls updates through a Celery task with a persisted update offset. Delivery is enabled only for workspaces that explicitly configure Telegram approval and remains approval-required.
+
+Local PostgreSQL migrations through revision `fc2a3b4c5d6e` have been applied. Existing regression tests plus two workflow tests pass. The local frontend build, backend compilation, Alembic drift check, Docker service restart, and HTTP root/docs smoke checks have been validated. Real Telegram delivery remains operator-gated until a bot token and authorized chat/user IDs are added to the local environment.
+
+
+## Remaining roadmap checkpoint
+
+The platform now includes organization-scoped social signals for public mentions, competitor activity, audience feedback, and trend observations. Workspace Brand Brain configuration supports watch terms and competitor URLs; trusted content opportunities can be materialized into deduplicated signals with deterministic sentiment, relevance, provenance, and periodic Celery refresh. A new Operations screen exposes collection and signal summaries without collecting personal/private data.
+
+Publishing analytics now persists provider-neutral metric snapshots for Facebook, Instagram, and LinkedIn with impressions, reach, engagements, reactions, comments, shares, clicks, video views, saves, negative feedback, engagement rate, source, and raw-provider metadata. Workspace summaries aggregate platform performance and identify top-performing content for future hook/theme learning. Metric ingestion is intentionally explicit and does not pretend to have provider analytics credentials when they are absent.
+
+Workspace automation policy now supports approval-required and controlled modes, emergency stop, risk-tier ceilings, daily autopilot caps, approval-batch limits, and daily draft caps. Deterministic risk scoring is persisted on every content draft, enforced before approval submission, checked by recurring generation plans, and enforced by the canonical scheduled publisher before any provider call. Controlled mode never silently bypasses the human approval gate.
+
+Branded media composition now creates Facebook, Instagram, and LinkedIn image variants from an organization-owned source image, applies the selected theme palette, and overlays the configured logo position. Pillow is included in the backend image, and the composition endpoint returns stored preview URLs through the existing media ownership boundary.
+
+The latest local validation reports **49 backend tests passed**, Python compilation passed, frontend build passed, PostgreSQL migration `fd3b4c5d6e7f` applied, Alembic drift clean, Pillow import healthy, Docker API/Worker/Beat restarted, and API root HTTP 200. Live provider metric synchronization, live social listening APIs, real Telegram delivery, and social publishing remain gated by operator credentials and connected business accounts.
+
+
+## Kashvera Business-Aware Content and Creative Studio Checkpoint
+
+- Corrected the previous generic motivational test: the selected fashion workspace now receives business-aware intent rather than defaulting to unrelated life motivation.
+- Replaced the generic category seed behavior with additive business categories: Product Showcase, Collection Launch, Bridal & Occasion, Styling Tips, Fabric & Craft, Behind the Scenes, Customer Story, Offer & Booking, Fashion Quote, and Seasonal/Festival, while preserving legacy categories.
+- Updated AI draft and theme-generation prompts to use workspace business context and to prioritize fashion products, collections, tailoring, styling, craft, consultation, and verified public contact details.
+- Added four deterministic template families: Fashion Editorial, Product Catalog, Quote Card, and Collection Story.
+- Extended branded media composition with exact headline/body/quote/CTA, logo, website, handles, phone, WhatsApp, location, gradient, border, and multi-zone layout slots, producing Facebook, Instagram, and LinkedIn variants.
+- Added the `/creative-studio` portal and navigation entry for workspace-owned source media, exact creative copy, contact slots, and preview-only variant generation.
+- Fixed active-workspace persistence across route navigation using localStorage and immediate switcher writes.
+- Added `KASHVERA_CONTENT_STRATEGY.md`, `REFERENCE_IMAGE_INSPECTION.md`, and `CONTENT_STRATEGY_RESEARCH.md` documenting the supplied reference analysis and the distinction between organic posts and paid advertisements.
+- Validation: frontend build passed with 85 modules; backend compilation passed; full backend suite passed with 50 tests; Alembic drift check reported no new upgrade operations; safe browser test generated a Kashvera Product Showcase draft titled `Precision Tailoring: Spotlight on Our Signature Blazer` without scheduling or publishing.
+- Commit pushed: `f74765f` (`feat: add business-aware fashion content studio`).
+
+
+The grounding hardening pass now distinguishes approved product/service/source facts from general workspace context. When a product-oriented category has no approved catalog facts, the generator is instructed to use generic fashion language only, and a deterministic detector adds `product_details_require_confirmation` plus specific unverified-detail flags for concrete garment, fabric, cut, or feature claims. This keeps the draft in the approval workflow while making factual confirmation explicit.
+
+Focused grounding and additive-seed tests pass. The local Docker API suite now reports **52 backend tests passed**, Python compilation passed, PostgreSQL Alembic drift check passed, and the Windows frontend production build passed with 85 modules. A full reload of `/creative-studio` retained Kashvera Fashion Designer as the active workspace. The hidden browser file input could not be targeted by the browser upload helper, so upload-to-render remains covered by renderer/service-level tests rather than being claimed as a completed UI upload test.
+
+
+## Complete image-plus-social-post package checkpoint
+
+Creative Studio now treats the reference-style image as only one part of a post. The new preview-only package endpoint creates one approval-required draft, renders the selected branded image template for Facebook, Instagram, and LinkedIn, and returns each image together with its platform copy, headline, caption, CTA, normalized hashtags, optional tags/mentions, and draft status. The UI now separates text printed inside the image from the caption shown beside the image and displays all metadata in the review cards.
+
+A backward-compatible `tags_json` field and Alembic migration `fe4f5a6b7c8d` were added to content packages. Integration and service tests cover three platform images plus complete metadata. Local validation now reports **54 backend tests passed**, Python compilation passed, frontend production build passed, and Alembic drift is clean. No post was approved, scheduled, published, sent to Telegram, boosted, or converted into a paid campaign.
+
+
+## Workspace-aware end-to-end repair checkpoint
+
+A deep gap audit found that New Content used a global category list, AI generation created text-only drafts with `media_id=None`, generated content responses did not reliably expose nested media, and collected sources had no visible approve/reject transition even though generation required approved sources. The repair adds workspace-ranked categories and a recommendation endpoint, expands the taxonomy with Service Showcase, Case Study & Results, Educational / How-to, Industry Insights, Client Story, and Company & Team, and automatically maps the recommended category to the business objective.
+
+AI draft generation now resolves an omitted category from the active workspace, prefers the newest workspace-owned image asset (excluding the configured logo) for branded variants, falls back to a deterministic branded text card when no image exists, attaches the generated Facebook variant to the Content draft, and creates complete platform packages. Content and package responses now hydrate nested media URLs. The edit/detail UI displays the actual image with caption, CTA, hashtags, tags, and draft status. Workspace sources now have explicit Approve and Reject controls so public evidence can enter generation context only after review.
+
+Live browser validation on `http://localhost:8000/content/new` confirmed Aaditech Solution automatically selected Service Showcase and Service showcase, showed the expanded category catalog, displayed the workspace recommendation/evidence, and labeled the preview as an organic draft. A safe generation click was blocked by the configured local organization quota (`20/10`), so no new AI draft was created in that browser step. Local validation reports **56 backend tests passed**, Python compilation passed, frontend production build passed, and Alembic drift is clean. No approval, Telegram send, OAuth, social publish, boost, paid campaign, or destructive action occurred.

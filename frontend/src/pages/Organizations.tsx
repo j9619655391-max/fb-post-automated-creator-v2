@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useOrg } from '../context/OrgContext';
 import {
@@ -22,7 +23,16 @@ export default function Organizations() {
     const [newOrgName, setNewOrgName] = useState('');
     const [newOrgSlug, setNewOrgSlug] = useState('');
     const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+const [success, setSuccess] = useState('');
+
+    const managementLinks = [
+        { to: '/workspace-intelligence', label: 'Knowledge & sources', description: 'Review workspace context, evidence, and approved source grounding.', tone: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+        { to: '/creative-studio', label: 'Brand & templates', description: 'Compose branded image packages and inspect draft previews.', tone: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-100' },
+        { to: '/roadmap-controls', label: 'Safety & approval', description: 'Review approval-required mode, risk controls, and operations status.', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+        { to: '/platforms', label: 'Channels & readiness', description: 'Inspect provider connection state without initiating OAuth.', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
+        { to: '/billing', label: 'Usage & plan', description: 'Monitor AI request usage, token consumption, and plan limits.', tone: 'bg-sky-50 text-sky-700 border-sky-100' },
+        { to: '/audit-logs', label: 'Audit trail', description: 'Review generation, approval, scheduling, and provider events.', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
+    ];
 
     useEffect(() => {
         if (currentOrg) {
@@ -91,9 +101,25 @@ export default function Organizations() {
     return (
         <div className="space-y-8">
             <header>
-                <h1 className="text-2xl font-semibold text-slate-900">Workspaces & Teams</h1>
-                <p className="text-slate-600">Switch between your personal projects and team workspaces.</p>
-            </header>
+<h1 className="text-2xl font-semibold text-slate-900">Manage workspace</h1>
+                <p className="text-slate-600">Control workspace identity, content intelligence, brand templates, safety, channels, usage, and team access from one place.</p>
+                        </header>
+
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-label="Workspace management shortcuts">
+                {managementLinks.map((link) => (
+                    <Link key={link.to} to={link.to} className={`rounded-2xl border p-4 transition-shadow hover:shadow-md ${link.tone}`}>
+                        <div className="mb-1 flex items-center justify-between gap-3">
+                            <h2 className="text-sm font-bold">{link.label}</h2>
+                            <span aria-hidden="true">→</span>
+                        </div>
+                        <p className="text-xs leading-relaxed opacity-80">{link.description}</p>
+                    </Link>
+                ))}
+            </section>
+
+            <div className="rounded-xl border border-indigo-100 bg-indigo-50 px-4 py-3 text-sm text-indigo-800">
+                <strong>Safety contract:</strong> drafts remain local and unpublished until the existing human approval workflow is completed. This management panel does not connect providers, publish, schedule, send Telegram messages, or change emergency-stop controls by itself.
+            </div>
 
             {error && <div className="p-4 bg-red-50 text-red-700 rounded-lg text-sm border border-red-100">{error}</div>}
             {success && <div className="p-4 bg-emerald-50 text-emerald-700 rounded-lg text-sm border border-emerald-100">{success}</div>}

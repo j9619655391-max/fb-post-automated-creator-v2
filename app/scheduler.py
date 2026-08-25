@@ -20,10 +20,14 @@ from app.models.content import Content
 from app.models.scheduled_post import ScheduledPost, ScheduledPostStatus, ScheduledPlatform
 from app.models.meta_page import MetaPage
 from app.models.linkedin_account import LinkedInAccount
+from app.models.workspace_intelligence import WorkspaceProfile
+from app.models.system_setting import SystemSetting
+
 from app.services.audit_service import AuditService
 from app.services.publish_errors import classify_publish_failure
 from app.services.scheduled_execution_service import ScheduledExecutionError, execute_scheduled_post
 from app.services.ai_provider_health_service import collect_ai_provider_health
+from app.services.telegram_approval_service import poll_telegram_updates, send_approval_request
 
 logger = logging.getLogger(__name__)
 
@@ -135,7 +139,20 @@ def publish_scheduled_post_task(self, scheduled_post_id: int):
         if sp.status in [ScheduledPostStatus.POSTED, ScheduledPostStatus.CANCELLED, ScheduledPostStatus.DEAD_LETTER]:
             return {"ok": True, "status": sp.status.value}
 
+        if sp.content and sp.content.organization_id:
+            from app.services.risk_policy_service import get_or_create_policy
+            policy = get_or_create_policy(db, sp.content.organization_id)
+            if policy.emergency_stop:
+                sp.status = ScheduledPostStatus.FAILED
+                sp.last_error_code = "WORKSPACE_EMERGENCY_STOP"
+                sp.failure_reason = (policy.emergency_stop_reason or "Workspace emergency stop is active")[:512]
+                sp.completed_at = datetime.now(timezone.utc)
+                db.commit()
+                logger.warning("scheduled_post.blocked_emergency_stop", extra={"scheduled_post_id": sp.id, "organization_id": sp.content.organization_id})
+                return {"ok": False, "status": "failed", "reason": sp.failure_reason}
+
         sp.status = ScheduledPostStatus.PROCESSING
+
         sp.attempt_count = (sp.attempt_count or 0) + 1
         sp.next_retry_at = None
         db.commit()
@@ -318,6 +335,81 @@ def token_guard_task():
     finally:
         db.close()
 
+@celery_app.task(name="app.telegram_approval_delivery_task")
+def telegram_approval_delivery_task():
+    """Deliver generated drafts to configured Telegram approvers without publishing."""
+    db = SessionLocal()
+    try:
+        drafts = (
+            db.query(Content)
+            .join(WorkspaceProfile, WorkspaceProfile.organization_id == Content.organization_id)
+            .filter(
+                Content.status == "draft",
+                WorkspaceProfile.telegram_approval_enabled.is_(True),
+                WorkspaceProfile.telegram_approval_chat_id.isnot(None),
+            )
+            .order_by(Content.created_at.asc())
+            .limit(25)
+            .all()
+        )
+        sent = 0
+        errors = 0
+        for content in drafts:
+            try:
+                if send_approval_request(db, content.id):
+                    sent += 1
+            except Exception:
+                errors += 1
+                logger.exception("telegram.approval_delivery_failed", extra={"content_id": content.id})
+        return {"enabled": bool(settings.telegram_bot_token), "sent": sent, "errors": errors}
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.telegram_poll_task")
+def telegram_poll_task():
+    """Poll Telegram updates once and persist the next offset for idempotent restarts."""
+    db = SessionLocal()
+    try:
+        setting = db.query(SystemSetting).filter(SystemSetting.key == "telegram.update_offset").first()
+        offset = int(setting.value) if setting and setting.value and setting.value.isdigit() else None
+        result = poll_telegram_updates(db, offset)
+        next_offset = result.get("next_offset")
+        if next_offset is not None:
+            if setting is None:
+                setting = SystemSetting(key="telegram.update_offset", value=str(next_offset), description="Telegram approval polling offset")
+                db.add(setting)
+            else:
+                setting.value = str(next_offset)
+            db.commit()
+        return result
+    finally:
+        db.close()
+
+
+@celery_app.task(name="app.collect_social_signals_task")
+def collect_social_signals_task():
+    """Materialize trusted discovered opportunities as reviewable social signals."""
+    from app.models.organization import Organization
+    from app.services.social_listening_service import collect_workspace_signals
+
+    db = SessionLocal()
+    try:
+        results = {"workspaces": 0, "signals": 0, "errors": 0}
+        for organization in db.query(Organization).filter(Organization.is_active.is_(True)).all():
+            try:
+                signals = collect_workspace_signals(db, organization.id)
+                results["workspaces"] += 1
+                results["signals"] += len(signals)
+            except Exception:
+                results["errors"] += 1
+                logger.exception("social_signals.refresh_failed", extra={"organization_id": organization.id})
+                db.rollback()
+        return results
+    finally:
+        db.close()
+
+
 @celery_app.task(name="app.ai_provider_health_task")
 def ai_provider_health_task():
     """Log safe provider health alerts; this task performs no provider API calls."""
@@ -362,9 +454,21 @@ celery_app.conf.beat_schedule = {
         "task": "app.token_guard_task",
         "schedule": 86400.0, # 24 hours
     },
+    "refresh-social-signals": {
+        "task": "app.collect_social_signals_task",
+        "schedule": 1800.0,
+    },
     "check-ai-provider-health": {
         "task": "app.ai_provider_health_task",
         "schedule": 900.0, # 15 minutes
+    },
+    "deliver-telegram-approvals": {
+        "task": "app.telegram_approval_delivery_task",
+        "schedule": 30.0,
+    },
+    "poll-telegram-approvals": {
+        "task": "app.telegram_poll_task",
+        "schedule": 15.0,
     },
 
 }

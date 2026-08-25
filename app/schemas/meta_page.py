@@ -10,7 +10,9 @@ class MetaPageResponse(BaseModel):
     page_id: str
     page_name: Optional[str] = None
     category: Optional[str] = None
+    instagram_business_account_id: Optional[str] = None
     created_at: datetime
+
     updated_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}

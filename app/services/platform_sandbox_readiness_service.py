@@ -53,7 +53,7 @@ def _meta_readiness(db: Session, user_id: int) -> dict[str, Any]:
         with httpx.Client(timeout=10.0) as client:
             response = client.get(
                 "https://graph.facebook.com/v18.0/me/accounts",
-                params={"fields": "id,name", "limit": 1},
+                params={"fields": "id,name,instagram_business_account", "limit": 1},
                 headers={"Authorization": f"Bearer {access_token}"},
             )
         if response.is_success:
@@ -70,13 +70,15 @@ def _meta_readiness(db: Session, user_id: int) -> dict[str, Any]:
     return result
 
 
-def _instagram_readiness(meta: dict[str, Any]) -> dict[str, Any]:
+def _instagram_readiness(meta: dict[str, Any], linked_count: int) -> dict[str, Any]:
+    ready = meta["remote_check"] == "passed" and linked_count > 0
     return {
         "configured": meta["configured"],
-        "connected": meta["connected"],
-        "remote_check": "not_run",
-        "publish_ready": False,
-        "reason": "Instagram professional-account linkage and account ID are not yet persisted for sandbox validation",
+        "connected": linked_count > 0,
+        "remote_check": meta["remote_check"],
+        "publish_ready": ready,
+        "linked_accounts_count": linked_count,
+        "reason": None if ready else "connect a professional Instagram account to a synced Facebook Page and pass the Meta read-only check",
         "meta_dependency": "Instagram publishing requires a connected professional account and Meta authorization",
     }
 
@@ -129,9 +131,13 @@ def _linkedin_readiness(db: Session, user_id: int) -> dict[str, Any]:
 
 def collect_platform_sandbox_readiness(db: Session, user_id: int) -> dict[str, Any]:
     meta = _meta_readiness(db, user_id)
+    linked_instagram_count = db.query(MetaPage).filter(
+        MetaPage.user_id == user_id,
+        MetaPage.instagram_business_account_id.isnot(None),
+    ).count()
     return {
         "facebook": meta,
-        "instagram": _instagram_readiness(meta),
+        "instagram": _instagram_readiness(meta, linked_instagram_count),
         "linkedin": _linkedin_readiness(db, user_id),
         "publishing_attempted": False,
     }

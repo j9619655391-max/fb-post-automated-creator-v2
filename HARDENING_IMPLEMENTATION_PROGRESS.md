@@ -215,3 +215,54 @@ Validation: **39 backend tests passed**, Python compilation passed, frontend bui
 The platform now exposes a read-only sandbox-readiness check for Facebook, Instagram, and LinkedIn. It performs no publishing, does not return access tokens, and sanitizes provider errors into configuration, permission, rate-limit, or availability messages. Meta validation uses only account/page discovery; LinkedIn validation uses only member identity; Instagram remains blocked until professional-account linkage is modeled and verified.
 
 The authenticated live route returned `401` without credentials, confirming the route is protected. The full regression suite passed with **41 tests**. Python compilation, frontend build, Alembic drift validation, and Docker runtime checks passed. No external social publishing was attempted.
+
+
+## Production-readiness checkpoint: provider account modeling and permissions
+
+Meta Page synchronization now persists the linked Instagram professional-account ID from the authorized `/me/accounts` response. Instagram publishing uses the encrypted user access token and prefers this persisted linkage, while readiness checks report linked-account counts and never call publish endpoints. The migration `f6a7b8c9d0e1_add_provider_account_metadata.py` adds the linkage field and is applied to local PostgreSQL.
+
+LinkedIn synchronization now reads approved organization ACLs and persists the discovered organization role and state. Organization publishing is blocked unless the account has an approved administrator or content-admin role. LinkedIn API version and OAuth scopes are configurable; Meta OAuth scopes are configurable and include the Instagram professional-account permissions required for the supported flow. Safe API responses expose account metadata only and never expose tokens.
+
+| Validation | Result |
+|---|---:|
+| Provider account synchronization tests | **2 passed** |
+| Complete backend suite | **43 passed** |
+| Python `compileall` | Passed |
+| Frontend `npm run build` | Passed |
+| PostgreSQL Alembic migration | Applied |
+| `alembic check` | Passed; no new upgrade operations |
+| Docker API root | Passed; HTTP 200 |
+| External social publishing | Not attempted |
+
+## Remaining provider boundary
+
+Live E2E validation still requires operator-supplied Meta/Instagram and LinkedIn credentials, approved HTTPS callback URLs, connected professional and organization test accounts, publicly accessible media, and explicit approval for each publishing test. Production secrets must be generated and rotated independently of the credentials previously shared during setup. The approval-required mode, moderation, duplicate detection, quotas, cooldowns, retry classification, and dead-letter safeguards remain active.
+
+
+Instagram publishing now checks Meta's rolling content-publishing quota before creating a container and polls the container status with bounded configurable attempts. Only `FINISHED` or `PUBLISHED` permits the publish call; `IN_PROGRESS`, `ERROR`, `EXPIRED`, unknown states, provider errors, and quota exhaustion remain visible to the existing retry/terminal/dead-letter classification path. This keeps provider rate limits and asynchronous media processing inside the same controlled publishing boundary.
+
+
+## Expanded content creator hardening checkpoint
+
+Brand Brain fields are now organization-scoped and permissioned through the existing workspace intelligence boundary. Theme CRUD is workspace-scoped with slug uniqueness and one-default-theme handling. Logo references are stored as media IDs rather than exposing files or tokens through profile responses; actual logo composition remains a controlled media-rendering phase.
+
+Fresh opportunity discovery supports RSS, optional News API, and OpenAlex research records with bounded HTTP timeouts, source URLs, publisher/date metadata, deduplication identifiers, freshness/relevance/trust scores, and evidence-only behavior. External source text is treated as untrusted data and is not copied directly into public posts.
+
+Telegram approval requests use server-side bot configuration, workspace chat/user authorization, idempotent persisted request rows, opaque callback IDs, expired/duplicate decision protection, persisted polling offsets, and approval-required state transitions. Rejection notes create explicit content-revision lineage and are passed as revision context to the AI generation service. Telegram delivery and polling are disabled when no bot token is configured.
+
+The content-package layer persists platform-specific variants linked to source content, optional themes, and optional opportunities. Content packages retain source URLs and do not bypass moderation, quotas, provider permissions, cooldowns, or the human approval gate.
+
+Validation after this checkpoint: **46 backend tests passed**, Python compilation passed, frontend build passed, PostgreSQL migrations through `fc2a3b4c5d6e` applied, `alembic check` reported no new operations, Docker API/Worker/Beat restarted successfully, and local root/docs smoke checks returned HTTP 200. Real Telegram or social publishing remains operator-gated until local bot/provider credentials and authorized targets are configured.
+
+
+## Remaining roadmap hardening checkpoint
+
+Social signals are organization-scoped, deduplicated by source identity, and derived from public/source-grounded records or explicit operator input. Watch terms and competitor URLs are business configuration only; the workflow does not collect private personal data. Signal refresh is bounded and scheduled through the existing Celery worker, while source text remains untrusted reference data.
+
+Metric snapshots are immutable-point-in-time style records linked to workspace content and optional publish targets. Analytics aggregation is deterministic and provider-neutral; it does not infer unavailable metrics or make external API calls without configured adapters and credentials. Raw provider payloads are stored as operator-controlled metadata for later audit.
+
+Automation safeguards are fail-closed. Approval-required is the default, controlled mode does not bypass approval, critical-risk drafts cannot enter the approval queue, daily generation caps apply to recurring plans, and emergency stop blocks both recurring generation and queued scheduled publishing before provider execution. The operations UI makes the stop state and policy ceiling visible.
+
+Branded composition is restricted to workspace-owned source media and workspace-owned logo/theme references. The compositor preserves the source image inside platform-specific canvases, applies a bounded logo size and configured position, and stores variants through the existing media ownership boundary. The local Docker image now includes Pillow.
+
+Validation after this checkpoint: **49 backend tests passed**, Python compilation passed, frontend production build passed, migration `fd3b4c5d6e7f` applied, Alembic reported no drift, Pillow imported successfully in the API image, Docker API/Worker/Beat restarted, and API root returned HTTP 200. External provider publishing, live provider analytics synchronization, and live Telegram operation remain operator-gated.

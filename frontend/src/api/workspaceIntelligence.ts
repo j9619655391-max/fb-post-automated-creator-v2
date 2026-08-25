@@ -7,6 +7,7 @@ export interface WorkspaceProfile {
   organization_id: number;
   business_description?: string | null;
   mission?: string | null;
+  tagline?: string | null;
   industry?: string | null;
   services: string[];
   products: string[];
@@ -14,6 +15,11 @@ export interface WorkspaceProfile {
   locations: string[];
   brand_voice?: string | null;
   tone?: string | null;
+  visual_style?: string | null;
+  brand_colors: string[];
+  font_preferences: string[];
+  preferred_content_formats: string[];
+  content_cadence: Record<string, unknown>;
   keywords: string[];
   preferred_languages: string[];
   contact_email?: string | null;
@@ -25,6 +31,11 @@ export interface WorkspaceProfile {
   facebook_url?: string | null;
   instagram_url?: string | null;
   whatsapp_url?: string | null;
+  logo_media_id?: number | null;
+  telegram_approval_chat_id?: string | null;
+  telegram_approval_user_id?: string | null;
+  telegram_approval_enabled: boolean;
+  approval_required: boolean;
   approved_claims: string[];
   prohibited_claims: string[];
   last_refreshed_at?: string | null;
@@ -51,6 +62,24 @@ export interface WorkspaceSource {
   updated_at?: string | null;
 }
 
+export interface ContentOpportunity {
+  id: number;
+  organization_id: number;
+  source_type: string;
+  source_url?: string | null;
+  publisher?: string | null;
+  external_id?: string | null;
+  title: string;
+  summary?: string | null;
+  source_published_at?: string | null;
+  discovered_at: string;
+  freshness_score: number;
+  relevance_score: number;
+  trust_score: number;
+  status: string;
+  metadata: Record<string, unknown>;
+}
+
 export interface WorkspaceIntelligence {
   profile: WorkspaceProfile | null;
   sources: WorkspaceSource[];
@@ -73,6 +102,14 @@ export interface WorkspaceSourceInput {
   review_status?: string;
 }
 
+export function listContentOpportunities(orgId: number): Promise<ContentOpportunity[]> {
+  return apiGet<ContentOpportunity[]>(`organizations/${orgId}/intelligence/opportunities`);
+}
+
+export function discoverContentOpportunities(orgId: number): Promise<ContentOpportunity[]> {
+  return apiPost<ContentOpportunity[]>(`organizations/${orgId}/intelligence/opportunities/discover`);
+}
+
 export function getWorkspaceIntelligence(orgId: number): Promise<WorkspaceIntelligence> {
   return apiGet<WorkspaceIntelligence>(`organizations/${orgId}/intelligence`);
 }
@@ -87,6 +124,10 @@ export function addWorkspaceSource(orgId: number, payload: WorkspaceSourceInput)
 
 export function refreshWorkspaceSource(orgId: number, sourceId: number): Promise<WorkspaceSource> {
   return apiPost<WorkspaceSource>(`organizations/${orgId}/intelligence/sources/${sourceId}/refresh`);
+}
+
+export function reviewWorkspaceSource(orgId: number, sourceId: number, reviewStatus: 'pending' | 'approved' | 'rejected', reviewNote?: string): Promise<WorkspaceSource> {
+  return apiPost<WorkspaceSource>(`organizations/${orgId}/intelligence/sources/${sourceId}/review`, { review_status: reviewStatus, review_note: reviewNote });
 }
 
 export function refreshWorkspaceSources(orgId: number): Promise<{ refreshed_source_ids: number[]; errors: string[]; refreshed_count: number }> {

@@ -23,6 +23,7 @@ class ModerationResult:
 # These are intentionally phrase-based patterns rather than a broad word list
 # to reduce false positives in legitimate marketing copy.
 _BLOCKED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
+
     (
         "dangerous_instruction",
         re.compile(r"\bhow\s+to\s+(make|build|assemble)\s+(a\s+)?(bomb|explosive|weapon)\b", re.I),
@@ -42,7 +43,21 @@ _BLOCKED_PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 )
 
 
+
+
+_UNSUBSTANTIATED_OUTCOME_PATTERN = re.compile(
+    r"(?:\b(?:double|triple|increase|boost|grow|improve|reduce|deliver|generate|drive|guarantee)\b[^.!?]{0,45}\b(?:traffic|roi|return(?:s)?|lead(?:s)?|sales|conversion(?:s)?|revenue|result(?:s)?|engagement|reach)\b|\b\d+(?:\.\d+)?%?\s*(?:more|higher|increase|growth|conversion|reach|engagement|roi|results?)\b|\b(?:real|proven|measurable|guaranteed)\s+(?:roi|results?|growth|returns?)\b)",
+    re.I,
+)
+
+
+def contains_unsubstantiated_outcome_claim(text: str) -> bool:
+    """Detect outcome language that needs approved evidence before publication."""
+    return bool(_UNSUBSTANTIATED_OUTCOME_PATTERN.search(text or ""))
+
+
 def _combined_text(title: str, body: str, hashtags: Iterable[str]) -> str:
+
     return " ".join([title or "", body or "", *[str(tag) for tag in hashtags]]).strip()
 
 
@@ -51,11 +66,18 @@ def moderate_generated_post(
     body: str,
     hashtags: Optional[Iterable[str]] = None,
     risk_flags: Optional[Iterable[str]] = None,
+    *,
+    block_unsubstantiated_claims: bool = False,
 ) -> ModerationResult:
+
     """Return a deterministic moderation decision for one generated draft."""
     text = _combined_text(title, body, hashtags or [])
     flags = [name for name, pattern in _BLOCKED_PATTERNS if pattern.search(text)]
+
+    if block_unsubstantiated_claims and contains_unsubstantiated_outcome_claim(text):
+        flags.append("unsubstantiated_outcome_claim")
     # AI-provided risk flags remain visible to the human approver but do not
+
     # automatically block an otherwise safe draft because approval is required.
     if risk_flags:
         flags.extend(f"ai_review:{flag}" for flag in risk_flags if str(flag).strip())

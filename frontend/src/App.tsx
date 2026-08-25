@@ -19,6 +19,8 @@ import Billing from './pages/Billing';
 import SystemSettings from './pages/SystemSettings';
 import AutomationPlans from './pages/AutomationPlans';
 import WorkspaceIntelligence from './pages/WorkspaceIntelligence';
+import RoadmapControls from './pages/RoadmapControls';
+import CreativeStudio from './pages/CreativeStudio';
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuth();
@@ -48,6 +50,8 @@ function AppRoutes() {
         <Route path="platforms" element={<Platforms />} />
                 <Route path="organizations" element={<Organizations />} />
         <Route path="workspace-intelligence" element={<WorkspaceIntelligence />} />
+        <Route path="roadmap-controls" element={<RoadmapControls />} />
+        <Route path="creative-studio" element={<CreativeStudio />} />
 
         <Route path="audit-logs" element={<AuditLogs />} />
         <Route path="users" element={<Users />} />
