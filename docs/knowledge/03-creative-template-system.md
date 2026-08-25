@@ -46,9 +46,25 @@ Meta guidance distinguishes 1:1, 4:5, and 9:16 placements and recommends placeme
 | Language | Hinglish/Roman Hindi spelling and punctuation reviewed |
 | Package | Image URL and matching platform copy are connected |
 
+## Persisted package contract
+
+The platform now persists this contract per Facebook, Instagram, and LinkedIn package instead of treating the image as an unstructured side effect:
+
+| Field | Purpose |
+|---|---|
+| `image_text` | Short copy intended for the image overlay; separate from the full caption |
+| `alt_text` | Accessibility description for the generated image |
+| `objective` / `creative_archetype` | Marketing intent and layout family used for the variant |
+| `source_refs` / `claim_refs` | Evidence references attached to the package for human review |
+| `visual_brief` | Template, background, language, copy-contract, and QA-scope metadata |
+| `asset_provenance` | Whether the asset came from workspace media or a branded text-card fallback |
+| `visual_qa_status` / `visual_qa_flags` | Automated structural result for asset presence and exact dimensions |
+
+`visual_qa_status=structural_pass` confirms that the stored image exists and matches the platform dimension. It does **not** replace human review of typography, contrast, brand fit, or creative quality. Publishing remains approval-gated.
+
 ## Implementation gaps
 
-The current deterministic renderer has quote-card support and background presets, but the next master version should promote archetype and quote-length mode to first-class fields. Creative Studio should show preview-only sample cards before generation, explain why a template is recommended, and let the operator select an alternative. The final render should be gated by explicit confirmation.
+The current deterministic renderer has quote-card, product-catalog, collection-story, and fashion-editorial support with background presets, but a richer master system still needs first-class quote-length modes, more objective-specific archetypes, a true approved image/stock/AI asset provider with license provenance, and a browser-level visual QA workflow. Creative Studio should show preview-only sample cards before generation, explain why a template is recommended, and let the operator select an alternative. The final render should be gated by explicit confirmation.
 
 ## References
 

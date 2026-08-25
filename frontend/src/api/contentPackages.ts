@@ -10,12 +10,22 @@ export interface ContentPackage {
   opportunity_id?: number | null;
   platform: ContentPackagePlatform;
   headline?: string | null;
+  image_text?: string | null;
   caption: string;
+  alt_text?: string | null;
   cta?: string | null;
+  objective?: string | null;
+  creative_archetype?: string | null;
   hashtags: string[];
   tags: string[];
   source_urls: string[];
+  source_refs?: string[];
+  claim_refs?: string[];
+  visual_brief?: Record<string, unknown>;
+  asset_provenance?: Record<string, unknown>;
   media_variant_ids: number[];
+  visual_qa_status?: string;
+  visual_qa_flags?: string[];
   media_variant_urls?: string[];
   status: string;
   created_at: string;
@@ -26,6 +36,14 @@ export interface ContentPackageInput {
   platforms: ContentPackagePlatform[];
   theme_id?: number;
   opportunity_id?: number;
+  image_text?: string;
+  alt_text?: string;
+  objective?: string;
+  creative_archetype?: string;
+  source_refs?: string[];
+  claim_refs?: string[];
+  visual_brief?: Record<string, unknown>;
+  asset_provenance?: Record<string, unknown>;
 }
 
 export function createContentPackages(contentId: number, organizationId: number, payload: ContentPackageInput): Promise<ContentPackage[]> {
