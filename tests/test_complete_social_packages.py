@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from app.models.content import Content, ContentStatus
 from app.models.content_package import ContentPackage
 from app.models.organization import Organization
@@ -85,3 +87,38 @@ def test_complete_social_package_metadata_is_preserved(db):
     assert instagram.status == "draft"
     assert json.loads(instagram.tags_json) == ["@kashverafashion", "occasion wear"]
     assert db.query(ContentPackage).count() == 3
+
+
+def test_package_intent_metadata_rejects_unsupported_values(db):
+    user = User(
+        username="package-intent-owner",
+        email="package-intent-owner@example.com",
+        full_name="Package Intent Owner",
+        hashed_password="not-a-real-password-hash",
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    organization = Organization(name="Intent Workspace", slug="intent-workspace", created_by_id=user.id)
+    db.add(organization)
+    db.commit()
+    db.refresh(organization)
+    content = Content(
+        title="Intent test",
+        body="Intent body",
+        status=ContentStatus.DRAFT,
+        organization_id=organization.id,
+        created_by_id=user.id,
+    )
+    db.add(content)
+    db.commit()
+    db.refresh(content)
+
+    with pytest.raises(ValueError, match="Unsupported objective"):
+        create_content_packages(
+            db,
+            content.id,
+            organization.id,
+            ["facebook"],
+            objective="unsupported-objective",
+        )

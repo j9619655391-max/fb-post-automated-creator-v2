@@ -14,6 +14,27 @@ from app.services.media_composer_service import FORMAT_SIZES
 
 
 _ALLOWED_PLATFORMS = {"facebook", "instagram", "linkedin"}
+_ALLOWED_OBJECTIVES = {"awareness", "education", "product discovery", "conversion", "proof", "community"}
+_ALLOWED_ARCHETYPES = {
+    "service-announcement",
+    "product-showcase",
+    "quote-card",
+    "collection-story",
+    "educational-explainer",
+    "offer-card",
+    "case-study-proof",
+    "customer-story",
+    "behind-the-scenes",
+    "seasonal-campaign",
+}
+_ALLOWED_ASSET_MODES = {"workspace_media", "branded_text_card", "deterministic_text_card", "ai_generated", "stock_licensed", "not_available"}
+
+
+def _validate_choice(value: str | None, allowed: set[str], label: str) -> str | None:
+    normalized = " ".join(str(value or "").split()).strip()
+    if normalized and normalized not in allowed:
+        raise ValueError(f"Unsupported {label}: {normalized}")
+    return normalized or None
 
 
 def _structural_visual_qa(db: Session, organization_id: int, platform: str, media_ids: list[int]) -> tuple[str, list[str]]:
@@ -149,8 +170,8 @@ def create_content_packages(
         package.caption = _adapt_caption(content, platform, opportunity, caption)
         package.alt_text = _bounded_text(alt_text, 500, fallback=f"{content.title}. {package.image_text}")
         package.cta = cta or ("Book a consultation" if platform == "linkedin" else "Send us a message")
-        package.objective = _bounded_text(objective, 120) or None
-        package.creative_archetype = _bounded_text(creative_archetype, 120) or None
+        package.objective = _validate_choice(_bounded_text(objective, 120), _ALLOWED_OBJECTIVES, "objective")
+        package.creative_archetype = _validate_choice(_bounded_text(creative_archetype, 120), _ALLOWED_ARCHETYPES, "creative archetype")
         package.hashtags_json = json.dumps(_normalize_hashtags(hashtags, platform))
         package.tags_json = json.dumps(_normalize_items(tags))
         package.source_urls_json = json.dumps(_source_urls(opportunity))
@@ -167,11 +188,13 @@ def create_content_packages(
             "qa_scope": "asset_presence_and_dimensions_only",
             **(visual_brief or {}),
         })
-        package.asset_provenance_json = json.dumps({
+        provenance = {
             "mode": "workspace_media" if variant_ids else "not_available",
             "media_variant_ids": variant_ids,
             **(asset_provenance or {}),
-        })
+        }
+        provenance["mode"] = _validate_choice(provenance.get("mode"), _ALLOWED_ASSET_MODES, "asset provenance mode") or "not_available"
+        package.asset_provenance_json = json.dumps(provenance)
         package.media_variant_ids_json = json.dumps(variant_ids)
         package.visual_qa_status = _bounded_text(qa_status, 30, fallback="not_run") or "not_run"
         package.visual_qa_flags_json = json.dumps(qa_flags)

@@ -64,8 +64,12 @@ export interface BrandedMediaComposeRequest {
   template_family: 'fashion-editorial' | 'product-catalog' | 'quote-card' | 'collection-story';
   background_preset?: 'midnight-aurora' | 'warm-paper' | 'rose-editorial' | 'sunset-glow' | 'minimal-ink' | 'neon-night';
   headline: string;
+  image_text?: string;
   body: string;
+  alt_text?: string;
   cta: string;
+  objective?: string;
+  creative_archetype?: string;
   website?: string;
   handle?: string;
   phone?: string;
