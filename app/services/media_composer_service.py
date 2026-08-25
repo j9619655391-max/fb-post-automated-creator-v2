@@ -84,7 +84,7 @@ def _apply_quote_background(
         base = _linear_gradient((width, height), primary, _blend_color(primary, highlight, 0.52))
         draw = ImageDraw.Draw(base, "RGBA")
         draw.rounded_rectangle((int(width * 0.06), int(height * 0.13), int(width * 0.94), int(height * 0.86)), radius=36, fill=(*highlight, 28), outline=(*surface, 170), width=max(2, width // 420))
-        draw.rectangle((0, 0, int(width * 0.16), height), fill=(*accent, 225))
+        draw.rectangle((0, 0, int(width * 0.16), height), fill=(*highlight, 112))
         draw.line((int(width * 0.20), int(height * 0.08), int(width * 0.92), int(height * 0.08)), fill=(*surface, 150), width=max(2, width // 420))
         return base
     if preset == "sunset-glow":
