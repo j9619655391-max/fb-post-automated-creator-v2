@@ -28,6 +28,19 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function RequireAdmin({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
+  if (!user?.is_admin) {
+    return (
+      <div className="mx-auto max-w-3xl px-6 py-16">
+        <h1 className="text-2xl font-semibold text-slate-900">Administrator access required</h1>
+        <p className="mt-3 text-slate-600">System Settings is limited to platform administrators.</p>
+      </div>
+    );
+  }
+  return <>{children}</>;
+}
+
 function AppRoutes() {
   return (
     <Routes>
@@ -59,7 +72,7 @@ function AppRoutes() {
         <Route path="calendar" element={<Calendar />} />
         <Route path="automation-plans" element={<AutomationPlans />} />
         <Route path="billing" element={<Billing />} />
-        <Route path="system-settings" element={<SystemSettings />} />
+        <Route path="system-settings" element={<RequireAdmin><SystemSettings /></RequireAdmin>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

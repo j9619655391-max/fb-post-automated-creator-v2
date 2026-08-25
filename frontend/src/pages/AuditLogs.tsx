@@ -3,22 +3,29 @@ import { useAuth } from '../context/AuthContext';
 import { listAuditLogs, type AuditLog } from '../api/audit';
 
 export default function AuditLogs() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!isAuthenticated) return;
+    if (!isAuthenticated || !user?.is_admin) {
+      setLoading(false);
+      return;
+    }
     listAuditLogs({ limit: 100 })
       .then(setLogs)
       .catch(() => setLogs([]))
       .finally(() => setLoading(false));
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user?.is_admin]);
 
   return (
     <div>
       <h1 className="text-2xl font-semibold text-slate-900 mb-6">Audit Logs</h1>
-      {loading ? (
+      {!user?.is_admin ? (
+        <div className="bg-amber-50 rounded-xl border border-amber-200 p-8 text-center text-amber-800">
+          Audit Logs are available to platform administrators only.
+        </div>
+      ) : loading ? (
         <p className="text-slate-500">Loading...</p>
       ) : logs.length === 0 ? (
         <div className="bg-white rounded-xl border border-slate-200 p-8 text-center text-slate-500">

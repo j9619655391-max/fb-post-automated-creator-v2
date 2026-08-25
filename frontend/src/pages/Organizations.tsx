@@ -31,7 +31,7 @@ const [success, setSuccess] = useState('');
         { to: '/roadmap-controls', label: 'Safety & approval', description: 'Review approval-required mode, risk controls, and operations status.', tone: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
         { to: '/platforms', label: 'Channels & readiness', description: 'Inspect provider connection state without initiating OAuth.', tone: 'bg-amber-50 text-amber-700 border-amber-100' },
         { to: '/billing', label: 'Usage & plan', description: 'Monitor AI request usage, token consumption, and plan limits.', tone: 'bg-sky-50 text-sky-700 border-sky-100' },
-        { to: '/audit-logs', label: 'Audit trail', description: 'Review generation, approval, scheduling, and provider events.', tone: 'bg-slate-100 text-slate-700 border-slate-200' },
+        ...(user?.is_admin ? [{ to: '/audit-logs', label: 'Audit trail', description: 'Review generation, approval, scheduling, and provider events.', tone: 'bg-slate-100 text-slate-700 border-slate-200' }] : []),
     ];
 
     useEffect(() => {

@@ -198,7 +198,7 @@ export default function ContentForm() {
         else if (!res.available) setThemeError('Theme generation not configured (add GEMINI_API_KEY).');
         else setThemes([]);
       })
-      .catch(() => setThemeError('Could not generate themes.'))
+      .catch((error) => setThemeError(error instanceof Error ? error.message : 'Could not generate themes.'))
       .finally(() => setThemesLoading(false));
   }, [isEdit, isAuthenticated, selectedCategory?.id, businessObjective, visualTemplate, currentOrg?.id]);
 

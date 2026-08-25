@@ -17,9 +17,9 @@ export function apiUrl(path: string, params: Record<string, string | number | un
 
 export async function apiFetch<T>(
   path: string,
-  options: RequestInit & { params?: Record<string, string | number | undefined> } = {}
+  options: RequestInit & { params?: Record<string, string | number | undefined>; timeoutMs?: number } = {}
 ): Promise<T> {
-  const { params = {}, ...init } = options;
+  const { params = {}, timeoutMs, ...init } = options;
   const url = apiUrl(path, params);
 
   const token = localStorage.getItem(TOKEN_KEY);
@@ -36,13 +36,28 @@ export async function apiFetch<T>(
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const res = await fetch(url, {
-    ...init,
-    headers,
-  });
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  let controller: AbortController | undefined;
+  const requestInit: RequestInit = { ...init, headers };
+  if (timeoutMs !== undefined) {
+    controller = new AbortController();
+    requestInit.signal = controller.signal;
+    timeoutId = setTimeout(() => controller?.abort(), timeoutMs);
+  }
 
-  if (res.status === 401 || res.status === 403) {
+  let res: Response;
+  try {
+    res = await fetch(url, requestInit);
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+  }
+
+  // Only an unauthenticated response means the stored token is invalid or expired.
+  // A 403 is an authorization/role failure; keep the session intact so users do not
+  // appear to be logged out when they open an admin-only route.
+  if (res.status === 401) {
     localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('content_platform_user');
     if (typeof window !== 'undefined' && !window.location.pathname.startsWith('/login')) {
       window.location.href = '/login';
     }
