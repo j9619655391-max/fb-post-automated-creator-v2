@@ -53,12 +53,14 @@ CREATIVE_ARCHETYPE_CATALOG = {
     "collection-story": {"objective": "product discovery", "template_family": "collection-story", "asset_requirement": "workspace_media_or_branded_fallback"},
 }
 TEMPLATE_COPY_BUDGETS = {
-    "fashion-editorial": (56, 76),
-    "service-editorial": (56, 76),
-    "product-catalog": (60, 88),
-    "technology-explainer": (60, 84),
+    # These are image-overlay budgets, not caption budgets. Captions may remain
+    # long, but the image must stay concise enough for a real social safe area.
+    "fashion-editorial": (48, 60),
+    "service-editorial": (48, 60),
+    "product-catalog": (48, 60),
+    "technology-explainer": (52, 68),
     "quote-card": (140, 140),
-    "collection-story": (64, 88),
+    "collection-story": (52, 68),
 }
 QUOTE_BACKGROUND_PRESETS = {
     "midnight-aurora": "Deep midnight field with soft aurora glow",
@@ -250,12 +252,30 @@ def _wrap(draw: ImageDraw.ImageDraw, text: str, font: ImageFont.ImageFont, max_w
     lines: list[str] = []
     current = ""
     for word in words:
-        candidate = f"{current} {word}".strip()
-        if not current or draw.textlength(candidate, font=font) <= max_width:
-            current = candidate
-        else:
-            lines.append(current)
-            current = word
+        # Break unusually long tokens (URLs, handles, model names) instead of
+        # allowing a single unbreakable token to escape the safe text width.
+        chunks: list[str] = []
+        remainder = word
+        while remainder and draw.textlength(remainder, font=font) > max_width:
+            chunk = ""
+            for char in remainder:
+                candidate_chunk = chunk + char
+                if chunk and draw.textlength(candidate_chunk + "…", font=font) > max_width:
+                    break
+                chunk = candidate_chunk
+            if not chunk:
+                break
+            chunks.append(chunk)
+            remainder = remainder[len(chunk):]
+        if remainder:
+            chunks.append(remainder)
+        for piece in chunks:
+            candidate = f"{current} {piece}".strip()
+            if not current or draw.textlength(candidate, font=font) <= max_width:
+                current = candidate
+            else:
+                lines.append(current)
+                current = piece
     if current:
         lines.append(current)
     return "\n".join(lines)
@@ -303,7 +323,13 @@ def _fit_template_text(
     italic: bool = False,
     spacing: int = 5,
 ) -> tuple[ImageFont.ImageFont, str, int]:
-    """Fit marketing overlay copy into a measured box before it is painted."""
+    """Fit overlay copy into a measured box and ellipsize as a final guard.
+
+    Font shrinking alone is insufficient: a long string can still exceed the
+    box at the minimum size. The final candidate is therefore shortened by
+    words until both width and height fit, keeping the caption outside the
+    image as the complete version.
+    """
     size = start_size
     while size >= min_size:
         font = _font(preferences, font_key, size, italic=italic)
@@ -312,8 +338,18 @@ def _fit_template_text(
             return font, wrapped, spacing
         size -= 2
     font = _font(preferences, font_key, min_size, italic=italic)
-    wrapped, _, _ = _text_box(draw, text, font, max_width, spacing=max(2, spacing - 1))
-    return font, wrapped, max(2, spacing - 1)
+    final_spacing = max(2, spacing - 1)
+    candidate = " ".join(str(text or "").split())
+    words = candidate.split()
+    while words:
+        shortened = " ".join(words)
+        if len(words) < len(candidate.split()):
+            shortened += "…"
+        wrapped, _, height = _text_box(draw, shortened, font, max_width, spacing=final_spacing)
+        if height <= max_height:
+            return font, wrapped, final_spacing
+        words.pop()
+    return font, "…", final_spacing
 
 
 
@@ -322,6 +358,24 @@ def _compact_overlay_text(value: str | None, max_chars: int) -> str:
     if len(text) <= max_chars:
         return text
     return text[: max_chars - 1].rsplit(" ", 1)[0].rstrip(" ,;:—-") + "…"
+
+
+def prepare_image_overlay_cta(value: str | None, max_chars: int = 36) -> str:
+    """Return a short CTA that fits the reserved button or footer-safe zone."""
+    return _compact_overlay_text(value, max_chars)
+
+
+def prepare_image_overlay_copy(family: str, headline: str | None, body: str | None) -> tuple[str, str]:
+    """Return the concise headline/body that is allowed inside an image.
+
+    The complete caption remains outside the image. This helper is shared by
+    AI and Creative Studio callers so package metadata describes the text that
+    was actually rendered, not an unsafe long caption.
+    """
+    headline_limit, body_limit = TEMPLATE_COPY_BUDGETS.get(family, (48, 60))
+    if family == "quote-card":
+        return _compact_overlay_text(headline, 80), _compact_overlay_text(body or headline, 140)
+    return _compact_overlay_text(headline, headline_limit), _compact_overlay_text(body, body_limit)
 
 
 def _place_logo(canvas: Image.Image, logo: Image.Image | None, position: str) -> Image.Image:
@@ -399,11 +453,8 @@ def _render_template(
     settings: dict[str, Any] | None = None,
 ) -> Image.Image:
     settings = settings or _theme_settings(None, None)
-    cta = _compact_overlay_text(cta, 52)
-    if family != "quote-card":
-        headline_limit, body_limit = TEMPLATE_COPY_BUDGETS.get(family, (56, 76))
-        headline = _compact_overlay_text(headline, headline_limit)
-        body = _compact_overlay_text(body, body_limit)
+    cta = prepare_image_overlay_cta(cta)
+    headline, body = prepare_image_overlay_copy(family, headline, body)
     primary = settings["primary"]
     surface = settings["surface"]
     accent = settings["accent"]
@@ -443,35 +494,56 @@ def _render_template(
     if family == "product-catalog":
         canvas = _draw_gradient_overlay(canvas, 0, 150)
         draw = ImageDraw.Draw(canvas, "RGBA")
-        panel_top = int(size[1] * 0.50)
+        panel_top = int(size[1] * 0.46)
         draw.rounded_rectangle((margin // 2, panel_top, size[0] - margin // 2, size[1] - margin // 2), radius=22, fill=(*primary, 220))
+        title_height = int(size[1] * 0.10)
         title_font, title, title_spacing = _fit_template_text(
             draw,
             headline or "New design",
             typography,
             font_key="heading",
             max_width=size[0] - margin * 2,
-            max_height=int(size[1] * 0.10),
+            max_height=title_height,
             start_size=max(30, int(size[0] * 0.068)),
             min_size=22,
             spacing=4,
         )
-        draw.multiline_text((margin, panel_top + 30), title, font=title_font, fill=surface, spacing=title_spacing)
+        title_y = panel_top + 28
+        draw.multiline_text((margin, title_y), title, font=title_font, fill=surface, spacing=title_spacing)
+        detail_top = panel_top + title_height + 18
+        detail_height = int(size[1] * 0.12)
         detail_font, detail, detail_spacing = _fit_template_text(
             draw,
             body or "Made for your next occasion.",
             typography,
             font_key="body",
             max_width=size[0] - margin * 2,
-            max_height=int(size[1] * 0.16),
+            max_height=detail_height,
             start_size=max(24, int(size[0] * 0.045)),
             min_size=18,
             spacing=4,
         )
-        draw.multiline_text((margin, panel_top + 30 + int(size[1] * 0.10) + 18), detail, font=detail_font, fill=surface, spacing=detail_spacing)
+        draw.multiline_text((margin, detail_top), detail, font=detail_font, fill=surface, spacing=detail_spacing)
         if cta:
-            draw.rounded_rectangle((margin, size[1] - margin - 82, size[0] - margin, size[1] - margin - 24), radius=18, fill=accent)
-            draw.text((size[0] // 2, size[1] - margin - 53), cta, font=small, fill=primary, anchor="mm")
+            # Keep the CTA in its own zone above the footer strip. The previous
+            # bottom-anchored position could paint the button over branding.
+            footer_height = 58
+            footer_gap = max(12, int(size[1] * 0.02))
+            cta_height = 58
+            cta_y = size[1] - footer_height - footer_gap - (cta_height // 2)
+            draw.rounded_rectangle((margin, cta_y - cta_height // 2, size[0] - margin, cta_y + cta_height // 2), radius=18, fill=accent)
+            cta_font, cta_text, cta_spacing = _fit_template_text(
+                draw,
+                cta,
+                typography,
+                font_key="small",
+                max_width=size[0] - margin * 2,
+                max_height=34,
+                start_size=max(18, int(size[0] * 0.022)),
+                min_size=14,
+                spacing=2,
+            )
+            draw.text((size[0] // 2, cta_y), cta_text, font=cta_font, fill=primary, anchor="mm")
         canvas = _place_logo(canvas, logo, settings["logo_position"])
         draw = ImageDraw.Draw(canvas, "RGBA")
         _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)

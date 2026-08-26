@@ -46,6 +46,19 @@ const QUOTE_BACKGROUNDS = [
   { value: 'minimal-ink', label: 'Minimal Ink', description: 'Off-white, dark serif, generous whitespace', swatch: 'linear-gradient(135deg,#fafaf9,#ffffff 60%,#f59e0b)' },
   { value: 'neon-night', label: 'Neon Night', description: 'Charcoal with cyan and pink geometry', swatch: 'linear-gradient(135deg,#111827,#06b6d4 55%,#ec4899)' },
 ] as const;
+
+const CATEGORY_OBJECTIVE_DEFAULTS: Record<string, string> = {
+  'product-showcase': 'product-showcase', 'collection-launch': 'collection-launch', 'bridal-occasion': 'bridal-occasion', 'styling-tips': 'styling-tips', 'fabric-craft': 'fabric-craft', 'customer-story': 'customer-story', 'offer-booking': 'offer-booking', 'service-showcase': 'service-showcase', 'case-study-results': 'case-study-results', 'educational-howto': 'educational-howto', 'industry-insights': 'industry-insights', 'client-story': 'client-story', 'company-culture': 'company-culture',
+  'it-products-technology-solutions': 'software-product', 'software-products-saas': 'software-product', 'business-software-erp-crm': 'software-product', 'custom-software-development': 'digital-build', 'website-development': 'digital-build', 'ecommerce-development': 'digital-build', 'mobile-app-development': 'digital-build', 'ui-ux-product-design': 'digital-build', 'cloud-infrastructure': 'cloud-operations', 'devops-deployment': 'cloud-operations', 'cybersecurity': 'security-support', 'managed-it-support': 'security-support', 'data-ai-automation': 'data-automation', 'api-integrations': 'data-automation', 'quality-assurance-testing': 'technical-education', 'it-consulting-digital-transformation': 'service-showcase', 'hosting-domain-maintenance': 'cloud-operations', 'hardware-network-solutions': 'service-showcase', 'technical-training-enablement': 'technical-education',
+  'love-quotes': 'love-quotes', 'truth-quotes': 'truth-quotes', 'motivational-quotes': 'motivational-quotes', 'pain-quotes': 'pain-quotes',
+};
+const CATEGORY_TEMPLATE_DEFAULTS: Record<string, string> = {
+  'it-products-technology-solutions': 'product-catalog', 'software-products-saas': 'product-catalog', 'business-software-erp-crm': 'product-catalog', 'data-ai-automation': 'technology-explainer', 'api-integrations': 'technology-explainer', 'quality-assurance-testing': 'technology-explainer', 'technical-training-enablement': 'technology-explainer', 'case-study-results': 'collection-story', 'client-story': 'collection-story', 'service-showcase': 'service-editorial', 'custom-software-development': 'service-editorial', 'website-development': 'service-editorial', 'ecommerce-development': 'service-editorial', 'mobile-app-development': 'service-editorial', 'ui-ux-product-design': 'service-editorial', 'cloud-infrastructure': 'service-editorial', 'devops-deployment': 'service-editorial', 'cybersecurity': 'service-editorial', 'managed-it-support': 'service-editorial', 'it-consulting-digital-transformation': 'service-editorial', 'hosting-domain-maintenance': 'service-editorial', 'hardware-network-solutions': 'service-editorial', 'love-quotes': 'quote-card', 'truth-quotes': 'quote-card', 'motivational-quotes': 'quote-card', 'pain-quotes': 'quote-card',
+};
+const CATEGORY_BACKGROUND_DEFAULTS: Record<string, QuoteBackgroundValue> = {
+  'love-quotes': 'rose-editorial', 'truth-quotes': 'minimal-ink', 'motivational-quotes': 'sunset-glow', 'pain-quotes': 'warm-paper',
+};
+
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { createContent, updateContent, getContent } from '../api/content';
@@ -95,6 +108,23 @@ export default function ContentForm() {
   const [pages, setPages] = useState<MetaPage[]>([]);
   const [linkedinAccounts, setLinkedinAccounts] = useState<LinkedInAccount[]>([]);
 
+  function applyCategoryDefaults(category: ContentCategory | null) {
+    if (!category) {
+      setThemes([]);
+      setThemeError('');
+      return;
+    }
+    const slug = category.slug;
+    const nextObjective = CATEGORY_OBJECTIVE_DEFAULTS[slug];
+    const nextTemplate = CATEGORY_TEMPLATE_DEFAULTS[slug];
+    const nextBackground = CATEGORY_BACKGROUND_DEFAULTS[slug];
+    if (nextObjective) setBusinessObjective(nextObjective);
+    if (nextTemplate) setVisualTemplate(nextTemplate);
+    if (nextBackground) setBackgroundPreset(nextBackground);
+    setThemes([]);
+    setThemeError('');
+  }
+
   // Media state
   const [mediaId, setMediaId] = useState<number | null>(null);
   const [mediaUrl, setMediaUrl] = useState<string | null>(null);
@@ -132,84 +162,7 @@ export default function ContentForm() {
         setSelectedCategory(recommendation.category);
         setCategoryReason(recommendation.reason || 'Recommended from this workspace profile and source context.');
         setCategoryEvidence(recommendation.evidence_terms || []);
-        const objectiveByCategory: Record<string, string> = {
-          'product-showcase': 'product-showcase',
-          'collection-launch': 'collection-launch',
-          'bridal-occasion': 'bridal-occasion',
-          'styling-tips': 'styling-tips',
-          'fabric-craft': 'fabric-craft',
-          'customer-story': 'customer-story',
-          'offer-booking': 'offer-booking',
-          'service-showcase': 'service-showcase',
-          'case-study-results': 'case-study-results',
-          'educational-howto': 'educational-howto',
-          'industry-insights': 'industry-insights',
-          'client-story': 'client-story',
-          'company-culture': 'company-culture',
-          'it-products-technology-solutions': 'software-product',
-          'software-products-saas': 'software-product',
-          'business-software-erp-crm': 'software-product',
-          'custom-software-development': 'digital-build',
-          'website-development': 'digital-build',
-          'ecommerce-development': 'digital-build',
-          'mobile-app-development': 'digital-build',
-          'ui-ux-product-design': 'digital-build',
-          'cloud-infrastructure': 'cloud-operations',
-          'devops-deployment': 'cloud-operations',
-          'cybersecurity': 'security-support',
-          'managed-it-support': 'security-support',
-          'data-ai-automation': 'data-automation',
-          'api-integrations': 'data-automation',
-          'quality-assurance-testing': 'technical-education',
-          'it-consulting-digital-transformation': 'service-showcase',
-          'hosting-domain-maintenance': 'cloud-operations',
-          'hardware-network-solutions': 'service-showcase',
-          'technical-training-enablement': 'technical-education',
-          'love-quotes': 'love-quotes',
-          'truth-quotes': 'truth-quotes',
-          'motivational-quotes': 'motivational-quotes',
-          'pain-quotes': 'pain-quotes',
-        };
-        const templateByCategory: Record<string, string> = {
-          'it-products-technology-solutions': 'product-catalog',
-          'software-products-saas': 'product-catalog',
-          'business-software-erp-crm': 'product-catalog',
-          'data-ai-automation': 'technology-explainer',
-          'api-integrations': 'technology-explainer',
-          'quality-assurance-testing': 'technology-explainer',
-          'technical-training-enablement': 'technology-explainer',
-          'case-study-results': 'collection-story',
-          'client-story': 'collection-story',
-          'service-showcase': 'service-editorial',
-          'custom-software-development': 'service-editorial',
-          'website-development': 'service-editorial',
-          'ecommerce-development': 'service-editorial',
-          'mobile-app-development': 'service-editorial',
-          'ui-ux-product-design': 'service-editorial',
-          'cloud-infrastructure': 'service-editorial',
-          'devops-deployment': 'service-editorial',
-          'cybersecurity': 'service-editorial',
-          'managed-it-support': 'service-editorial',
-          'it-consulting-digital-transformation': 'service-editorial',
-          'hosting-domain-maintenance': 'service-editorial',
-          'hardware-network-solutions': 'service-editorial',
-          'love-quotes': 'quote-card',
-          'truth-quotes': 'quote-card',
-          'motivational-quotes': 'quote-card',
-          'pain-quotes': 'quote-card',
-        };
-        const suggestedObjective = objectiveByCategory[recommendation.category.slug];
-        if (suggestedObjective) setBusinessObjective(suggestedObjective);
-        const suggestedTemplate = templateByCategory[recommendation.category.slug];
-        if (suggestedTemplate) setVisualTemplate(suggestedTemplate);
-        const backgroundByCategory: Record<string, QuoteBackgroundValue> = {
-          'love-quotes': 'rose-editorial',
-          'truth-quotes': 'minimal-ink',
-          'motivational-quotes': 'sunset-glow',
-          'pain-quotes': 'warm-paper',
-        };
-        const suggestedBackground = backgroundByCategory[recommendation.category.slug];
-        if (suggestedBackground) setBackgroundPreset(suggestedBackground);
+        applyCategoryDefaults(recommendation.category);
       })
       .catch(() => {
         if (!cancelled) {
@@ -230,6 +183,8 @@ export default function ContentForm() {
       setThemes([]);
       return;
     }
+    let cancelled = false;
+    setThemes([]);
     setThemeError('');
     setThemesLoading(true);
     const objective = BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective);
@@ -243,12 +198,18 @@ export default function ContentForm() {
     })
 
       .then((res) => {
+        if (cancelled) return;
         if (res.available && res.themes.length) setThemes(res.themes);
         else if (!res.available) setThemeError('Theme generation not configured (add GEMINI_API_KEY).');
-        else setThemes([]);
+        else setThemeError('No themes returned for this category.');
       })
-      .catch((error) => setThemeError(error instanceof Error ? error.message : 'Could not generate themes.'))
-      .finally(() => setThemesLoading(false));
+      .catch((error) => {
+        if (!cancelled) setThemeError(error instanceof Error ? error.message : 'Could not generate themes.');
+      })
+      .finally(() => {
+        if (!cancelled) setThemesLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [isEdit, isAuthenticated, selectedCategory?.id, businessObjective, visualTemplate, currentOrg?.id]);
 
   function loadThemeIntoForm(theme: string) {
@@ -400,7 +361,11 @@ export default function ContentForm() {
                 value={selectedCategory?.id ?? ''}
                 onChange={(e) => {
                   const id = e.target.value ? parseInt(e.target.value, 10) : 0;
-                  setSelectedCategory(categories.find((c) => c.id === id) ?? null);
+                  const category = categories.find((c) => c.id === id) ?? null;
+                  setSelectedCategory(category);
+                  setCategoryReason(category ? 'Selected manually; defaults applied from this category.' : 'Choose a category to load relevant defaults.');
+                  setCategoryEvidence([]);
+                  applyCategoryDefaults(category);
                 }}
                 className="mb-3 w-full max-w-md rounded-lg border border-slate-300 px-3 py-2 focus:ring-2 focus:ring-indigo-500 bg-white"
               >
