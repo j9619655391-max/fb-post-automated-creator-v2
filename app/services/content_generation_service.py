@@ -508,9 +508,10 @@ def generate_and_persist_draft(
     organization_id: Optional[int] = None,
     idempotency_key: Optional[str] = None,
 ) -> ContentGenerationJob:
-    """Generate one complete post and persist it as an approval-required draft."""
-    if organization_id:
-        ContentService(db)._verify_org_access(user_id, organization_id)
+    """Generate one complete image-first post package for a workspace."""
+    if not organization_id:
+        raise ValueError("Select a workspace before generating an image-first post")
+    ContentService(db)._verify_org_access(user_id, organization_id)
 
     key = idempotency_key or str(uuid.uuid4())
     existing = db.query(ContentGenerationJob).filter(ContentGenerationJob.idempotency_key == key).first()

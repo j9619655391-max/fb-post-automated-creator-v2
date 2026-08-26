@@ -18,6 +18,7 @@ class ContentPackageCreate(BaseModel):
     claim_ref_ids: list[int] = Field(default_factory=list, max_length=40)
     visual_brief: dict[str, Any] = Field(default_factory=dict)
     asset_provenance: dict[str, Any] = Field(default_factory=dict)
+    media_variant_ids_by_platform: dict[str, list[int]] = Field(default_factory=dict)
 
 
 class ContentPackageResponse(BaseModel):

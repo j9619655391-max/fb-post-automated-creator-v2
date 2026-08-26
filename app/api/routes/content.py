@@ -178,6 +178,7 @@ def create_content_package_variants(
             claim_ref_ids=payload.claim_ref_ids,
             visual_brief=payload.visual_brief,
             asset_provenance=payload.asset_provenance,
+            media_variant_ids_by_platform=payload.media_variant_ids_by_platform,
         )
         return [_package_response(package, db) for package in packages]
     except ValueError as exc:

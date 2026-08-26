@@ -16,9 +16,11 @@ from app.services.media_composer_service import FORMAT_SIZES
 
 
 _ALLOWED_PLATFORMS = {"facebook", "instagram", "linkedin"}
-_ALLOWED_OBJECTIVES = {"awareness", "education", "product discovery", "conversion", "proof", "community"}
+_ALLOWED_OBJECTIVES = {"awareness", "education", "product discovery", "conversion", "lead generation", "proof", "community"}
 _ALLOWED_ARCHETYPES = {
     "service-announcement",
+    "fashion-editorial",
+    "technology-explainer",
     "product-showcase",
     "quote-card",
     "collection-story",
@@ -146,7 +148,7 @@ def _normalize_hashtags(values: list[str] | None, platform: str) -> list[str]:
     supplied = _normalize_items(values)
     if supplied:
         return [value if value.startswith("#") else f"#{value.lstrip('#')}" for value in supplied]
-    return [f"#{platform}", "#fashion", "#style"]
+    return [f"#{platform}", "#business", "#socialmedia"]
 
 
 def create_content_packages(
@@ -178,6 +180,8 @@ def create_content_packages(
     content = db.query(Content).filter(Content.id == content_id, Content.organization_id == organization_id).first()
     if not content:
         raise ValueError("Content not found in this workspace")
+    if not organization_id:
+        raise ValueError("Image-first packages require a workspace")
     normalized = list(dict.fromkeys(platform.lower() for platform in platforms))
     if not normalized or any(platform not in _ALLOWED_PLATFORMS for platform in normalized):
         raise ValueError("Platforms must be facebook, instagram, or linkedin")
@@ -217,11 +221,16 @@ def create_content_packages(
         package.source_ref_ids_json = json.dumps(validated_source_ids)
         package.claim_ref_ids_json = json.dumps(validated_claim_ids)
         package.evidence_status = evidence_status
-        variant_ids = (media_variant_ids_by_platform or {}).get(platform, [])
-        qa_status = visual_qa_status
-        qa_flags = _normalize_items(visual_qa_flags)
-        if visual_qa_status == "not_run" and variant_ids:
-            qa_status, qa_flags = _structural_visual_qa(db, organization_id, platform, variant_ids)
+        variant_ids = list(dict.fromkeys(int(value) for value in (media_variant_ids_by_platform or {}).get(platform, []) if int(value) > 0))
+        if not variant_ids:
+            raise ValueError(f"Image variant required for {platform} image-first package")
+        requested_qa_flags = _normalize_items(visual_qa_flags)
+        structural_status, structural_flags = _structural_visual_qa(db, organization_id, platform, variant_ids)
+        qa_flags = list(dict.fromkeys(requested_qa_flags + structural_flags))
+        # The renderer/storage check is authoritative. A caller-supplied
+        # `passed` or `not_run` value cannot bypass missing, unreadable, or
+        # incorrectly sized platform images.
+        qa_status = structural_status
         package.visual_brief_json = json.dumps({
             "platform": platform,
             "image_text_separate": True,
@@ -234,6 +243,8 @@ def create_content_packages(
             **(asset_provenance or {}),
         }
         provenance["mode"] = _validate_choice(provenance.get("mode"), _ALLOWED_ASSET_MODES, "asset provenance mode") or "not_available"
+        if provenance["mode"] == "not_available":
+            raise ValueError(f"Asset provenance required for {platform} image-first package")
         package.asset_provenance_json = json.dumps(provenance)
         package.media_variant_ids_json = json.dumps(variant_ids)
         package.visual_qa_status = _bounded_text(qa_status, 30, fallback="not_run") or "not_run"

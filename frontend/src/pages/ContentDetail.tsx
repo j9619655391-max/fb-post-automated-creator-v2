@@ -124,9 +124,15 @@ export default function ContentDetail() {
   }
   if (!content) return <p className="text-slate-500">Loading...</p>;
 
+  const imageFirstReady = Boolean(content.organization_id) &&
+    packages.length === 3 &&
+    ['facebook', 'instagram', 'linkedin'].every((platform) => {
+      const pkg = packages.find((item) => item.platform === platform);
+      return Boolean(pkg && pkg.media_variant_ids?.length && pkg.media_variant_urls?.length && pkg.asset_provenance?.mode && pkg.asset_provenance.mode !== 'not_available' && pkg.visual_qa_status === 'structural_pass');
+    });
   const canEdit = content.status === 'draft';
-  const canSubmit = content.status === 'draft';
-  const canApprove = content.status === 'pending_approval';
+  const canReview = content.status === 'pending_approval';
+  const canApprove = canReview && imageFirstReady;
   const statusClass =
     content.status === 'approved' ? 'bg-emerald-100 text-emerald-800' :
       content.status === 'pending_approval' ? 'bg-amber-100 text-amber-800' :
@@ -156,6 +162,11 @@ export default function ContentDetail() {
           {content.publish_statuses?.length > 0 && ` · Published to ${content.publish_statuses.filter(s => s.status === 'posted').length} targets`}
         </p>
       </div>
+      {content.organization_id && !imageFirstReady && (content.status === 'draft' || content.status === 'pending_approval') && (
+        <div className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <strong>Image-first package required before approval.</strong> This workspace content must contain Facebook, Instagram, and LinkedIn image variants with asset provenance and structural visual QA. Text-only or legacy package-less content cannot be approved.
+        </div>
+      )}
       {packages.length > 0 && (
         <section className="mb-6 rounded-xl border border-indigo-200 bg-indigo-50 p-5">
           <div className="flex items-start justify-between gap-4"><div><h2 className="text-lg font-bold text-indigo-950">Complete social post package</h2><p className="mt-1 text-sm text-indigo-800">The image and the text that accompanies it are stored together for review. Publishing is still blocked until approval.</p></div><span className="rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wide text-indigo-700">{packages.length} platforms</span></div>
@@ -192,9 +203,9 @@ export default function ContentDetail() {
             Edit
           </Link>
         )}
-        {canSubmit && (
-          <button type="button" onClick={handleSubmit} disabled={loading} className="rounded-lg bg-amber-600 text-white px-4 py-2 hover:bg-amber-700 disabled:opacity-50">
-            Submit for approval
+        {content.status === 'draft' && (
+          <button type="button" onClick={handleSubmit} disabled={loading || !imageFirstReady} title={!imageFirstReady ? 'Complete the image-first package before submitting' : undefined} className="rounded-lg bg-amber-600 text-white px-4 py-2 hover:bg-amber-700 disabled:opacity-50">
+            {imageFirstReady ? 'Submit for approval' : 'Image package required'}
           </button>
         )}
         {canEdit && (
@@ -202,10 +213,10 @@ export default function ContentDetail() {
             Delete
           </button>
         )}
-        {canApprove && (
+        {canReview && (
           <>
             <input type="text" placeholder="Comment (optional)" value={approveComment} onChange={(e) => setApproveComment(e.target.value)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-            <button type="button" onClick={() => handleApprove(true)} disabled={loading} className="rounded-lg bg-emerald-600 text-white px-4 py-2 hover:bg-emerald-700 disabled:opacity-50">Approve</button>
+            <button type="button" onClick={() => handleApprove(true)} disabled={loading || !canApprove} title={!canApprove ? 'Complete the image-first package before approval' : undefined} className="rounded-lg bg-emerald-600 text-white px-4 py-2 hover:bg-emerald-700 disabled:opacity-50">{canApprove ? 'Approve' : 'Image package required'}</button>
             <button type="button" onClick={() => handleApprove(false)} disabled={loading} className="rounded-lg bg-red-600 text-white px-4 py-2 hover:bg-red-700 disabled:opacity-50">Reject</button>
           </>
         )}

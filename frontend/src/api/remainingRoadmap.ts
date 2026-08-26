@@ -61,7 +61,7 @@ export interface BrandedMediaVariant {
 export interface BrandedMediaComposeRequest {
   source_media_id: number;
   theme_id?: number;
-  template_family: 'fashion-editorial' | 'product-catalog' | 'quote-card' | 'collection-story';
+  template_family: 'fashion-editorial' | 'service-editorial' | 'product-catalog' | 'technology-explainer' | 'quote-card' | 'collection-story';
   background_preset?: 'midnight-aurora' | 'warm-paper' | 'rose-editorial' | 'sunset-glow' | 'minimal-ink' | 'neon-night';
   headline: string;
   image_text?: string;
