@@ -69,6 +69,7 @@ import { uploadMedia } from '../api/media';
 import { optimizeContent } from '../api/ai';
 import { generateDraft } from '../api/generation';
 import { useOrg } from '../context/OrgContext';
+import { getRecommendedCard, getTemplateCards } from '../templateCatalog';
 
 export default function ContentForm() {
   const { isAuthenticated } = useAuth();
@@ -92,6 +93,7 @@ export default function ContentForm() {
 
   const [businessObjective, setBusinessObjective] = useState('service-showcase');
   const [visualTemplate, setVisualTemplate] = useState('service-editorial');
+  const [selectedCardId, setSelectedCardId] = useState('service-problem-solution');
   const [backgroundPreset, setBackgroundPreset] = useState<QuoteBackgroundValue>('midnight-aurora');
   const [confirmGenerationOpen, setConfirmGenerationOpen] = useState(false);
   const [generationConfirmed, setGenerationConfirmed] = useState(false);
@@ -118,12 +120,24 @@ export default function ContentForm() {
     const nextObjective = CATEGORY_OBJECTIVE_DEFAULTS[slug];
     const nextTemplate = CATEGORY_TEMPLATE_DEFAULTS[slug];
     const nextBackground = CATEGORY_BACKGROUND_DEFAULTS[slug];
+    const resolvedObjective = nextObjective ?? businessObjective;
+    const resolvedTemplate = nextTemplate ?? visualTemplate;
+    const nextCard = getRecommendedCard(slug, resolvedObjective, resolvedTemplate);
     if (nextObjective) setBusinessObjective(nextObjective);
     if (nextTemplate) setVisualTemplate(nextTemplate);
+    if (nextCard) setSelectedCardId(nextCard.id);
     if (nextBackground) setBackgroundPreset(nextBackground);
     setThemes([]);
     setThemeError('');
   }
+
+  const availableCards = getTemplateCards(selectedCategory?.slug, businessObjective, visualTemplate);
+  const selectedCard = availableCards.find((item) => item.id === selectedCardId) ?? availableCards[0];
+
+  useEffect(() => {
+    if (!availableCards.length) return;
+    if (!availableCards.some((item) => item.id === selectedCardId)) setSelectedCardId(availableCards[0].id);
+  }, [selectedCategory?.slug, businessObjective, visualTemplate]);
 
   // Media state
   const [mediaId, setMediaId] = useState<number | null>(null);
@@ -254,7 +268,8 @@ export default function ContentForm() {
         category_name: selectedCategory?.name,
         organization_id: currentOrg?.id,
         background_preset: backgroundPreset,
-        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Creative template: ${template?.guidance ?? visualTemplate}. Background direction: ${background?.description ?? backgroundPreset}. Follow the selected workspace language and category. Keep the content image-led, Hinglish where configured, and do not switch to unrelated generic content.`,
+        visual_card_id: selectedCard?.id,
+        extra_instruction: `Business objective: ${objective?.guidance ?? businessObjective}. Creative template family: ${template?.guidance ?? visualTemplate}. Selected visual card: ${selectedCard?.id ?? 'not selected'} (${selectedCard?.name ?? 'family default'}). Card layout must honor its image, logo, hierarchy, CTA, footer, and evidence slots. Background direction: ${background?.description ?? backgroundPreset}. Follow the selected workspace language and category. Keep the content image-led, Hinglish where configured, and do not switch to unrelated generic content.`,
       });
 
       navigate(`/content/${generated.id}/edit`, { replace: true });
@@ -381,7 +396,13 @@ export default function ContentForm() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Business objective</label>
                   <select
                     value={businessObjective}
-                    onChange={(e) => setBusinessObjective(e.target.value)}
+                    onChange={(e) => {
+                      const nextObjective = e.target.value;
+                      setBusinessObjective(nextObjective);
+                      const nextCard = getRecommendedCard(selectedCategory?.slug, nextObjective, visualTemplate);
+                      if (nextCard) setSelectedCardId(nextCard.id);
+                      setThemes([]);
+                    }}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
                   >
                     {BUSINESS_OBJECTIVES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
@@ -392,13 +413,48 @@ export default function ContentForm() {
                   <label className="block text-sm font-medium text-slate-700 mb-1">Creative template family</label>
                   <select
                     value={visualTemplate}
-                    onChange={(e) => setVisualTemplate(e.target.value)}
+                    onChange={(e) => {
+                      const nextTemplate = e.target.value;
+                      setVisualTemplate(nextTemplate);
+                      const nextCard = getRecommendedCard(selectedCategory?.slug, businessObjective, nextTemplate);
+                      if (nextCard) setSelectedCardId(nextCard.id);
+                      setThemes([]);
+                    }}
                     className="w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm"
                   >
                     {VISUAL_TEMPLATES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}
                   </select>
                   <p className="text-xs text-slate-500 mt-1">{VISUAL_TEMPLATES.find((item) => item.value === visualTemplate)?.guidance}</p>
                 </div>
+              </div>
+              <div className="mb-4 rounded-xl border-2 border-indigo-200 bg-white p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                  <div>
+                    <h3 className="text-sm font-semibold text-slate-900">Choose visual card</h3>
+                    <p className="text-xs text-slate-500 mt-1">These are real layout previews for the selected category and objective—not background swatches. Each card reserves space for the image, words, logo, CTA, and footer.</p>
+                  </div>
+                  {selectedCard && <span className="rounded-full bg-indigo-50 px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-indigo-700">{selectedCard.name}</span>}
+                </div>
+                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+                  {availableCards.map((item) => (
+                    <button key={item.id} type="button" onClick={() => { setSelectedCardId(item.id); setVisualTemplate(item.family); }} className={`overflow-hidden rounded-xl border text-left transition ${selectedCard?.id === item.id ? 'border-indigo-600 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}>
+                      <div className="relative h-32 p-3" style={{ background: item.preview.background, color: item.preview.text }}>
+                        <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.16em] opacity-90"><span>{item.heroLabel}</span><span className="h-3 w-7 rounded-sm" style={{ background: item.preview.accent }} /></div>
+                        <div className="mt-3 flex gap-2">
+                          <div className="flex-1 space-y-1.5">
+                            <div className="h-2 w-4/5 rounded" style={{ background: item.preview.text }} />
+                            <div className="h-1.5 w-full rounded opacity-70" style={{ background: item.preview.muted }} />
+                            <div className="h-1.5 w-3/5 rounded opacity-70" style={{ background: item.preview.muted }} />
+                          </div>
+                          <div className="h-14 w-16 rounded-md border border-white/30" style={{ background: item.preview.visual, opacity: 0.86 }} />
+                        </div>
+                        <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between"><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: item.preview.accent, color: item.preview.background }}>{item.ctaExamples[0]}</span><span className="h-1.5 w-12 rounded opacity-70" style={{ background: item.preview.muted }} /></div>
+                      </div>
+                      <span className="block px-3 py-2.5 bg-white"><span className="block text-sm font-semibold text-slate-900">{item.name}</span><span className="block text-xs leading-tight text-slate-500 mt-1">{item.description}</span><span className="block text-[10px] text-indigo-700 mt-2">Assets: {item.requiredAssets.join(' · ')}</span></span>
+                    </button>
+                  ))}
+                </div>
+                {selectedCard && <p className="mt-3 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"><strong>Selected card:</strong> {selectedCard.name}. <strong>Best for:</strong> {selectedCard.bestFor}. <strong>Slots:</strong> {selectedCard.slots.join(' · ')}.</p>}
               </div>
               {visualTemplate === 'quote-card' && (
                 <div className="mb-4 rounded-xl border border-indigo-200 bg-white p-4">
@@ -466,7 +522,7 @@ export default function ContentForm() {
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Final creative check</p>
                   <h2 id="confirm-generation-title" className="mt-1 text-lg font-semibold text-amber-950">Confirm before creating the image</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-amber-900">This will create exactly one unscheduled draft for <strong>{currentOrg?.name || 'the selected workspace'}</strong> using <strong>{selectedCategory?.name || 'the selected category'}</strong>, the <strong>{BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective)?.label || businessObjective}</strong> objective, and the <strong>{VISUAL_TEMPLATES.find((item) => item.value === visualTemplate)?.label || visualTemplate}</strong> layout{visualTemplate === 'quote-card' ? ` with the ${QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label} background` : ''}. It will not publish, schedule, boost, send to Telegram, or submit for approval.</p>
+                  <p className="mt-2 text-sm leading-relaxed text-amber-900">This will create exactly one unscheduled draft for <strong>{currentOrg?.name || 'the selected workspace'}</strong> using <strong>{selectedCategory?.name || 'the selected category'}</strong>, the <strong>{BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective)?.label || businessObjective}</strong> objective, and the <strong>{VISUAL_TEMPLATES.find((item) => item.value === visualTemplate)?.label || visualTemplate}</strong> family and <strong>{selectedCard?.name || 'selected card'}</strong> visual card{visualTemplate === 'quote-card' ? ` with the ${QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label} background` : ''}. It will not publish, schedule, boost, send to Telegram, or submit for approval.</p>
                 </div>
                 <button type="button" onClick={() => setConfirmGenerationOpen(false)} className="rounded-md px-2 py-1 text-amber-800 hover:bg-amber-100" aria-label="Close confirmation">Close</button>
               </div>
