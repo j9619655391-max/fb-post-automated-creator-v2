@@ -2,7 +2,7 @@
 
 from PIL import Image
 
-from app.services.media_composer_service import FORMAT_SIZES, TEMPLATE_COPY_BUDGETS, _render_template
+from app.services.media_composer_service import FORMAT_SIZES, TEMPLATE_COPY_BUDGETS, _render_template, prepare_image_overlay_copy, prepare_image_overlay_cta
 from app.services.content_generation_service import (
     _image_copy_for_generation,
     _image_headline_for_generation,
@@ -39,6 +39,47 @@ def test_all_template_families_render_platform_variants():
                 phone="+91 90000 00000",
                 whatsapp="+91 90000 00000",
                 location="Delhi",
+                logo=None,
+                settings=_settings(),
+            )
+            assert rendered.size == size
+            assert rendered.mode == "RGB"
+            assert rendered.getbbox() is not None
+
+
+def test_pathological_copy_is_bounded_for_every_family_and_platform():
+    original = Image.new("RGB", (1600, 1200), (25, 35, 55))
+    long_headline = "A headline with an exceptionally long unbreakable token https://example.com/this/is/a/very/long/path/that/must/not/escape"
+    long_body = "A detailed supporting paragraph with many words, contact details, and an unbroken token: SUPERLONGTOKEN_" + ("x" * 180)
+    long_cta = "Request a detailed consultation today via WhatsApp and visit our website for the complete service overview"
+    footer_values = {
+        "brand_label": "A very long workspace brand name for visual QA",
+        "website": "https://example.com/company/services/digital-transformation",
+        "handle": "@workspace_business_handle",
+        "phone": "+91 90000 00000",
+        "whatsapp": "+91 91111 11111",
+        "location": "New Delhi, India",
+    }
+
+    for family in ("fashion-editorial", "service-editorial", "product-catalog", "technology-explainer", "collection-story", "quote-card"):
+        safe_headline, safe_body = prepare_image_overlay_copy(family, long_headline, long_body)
+        assert len(safe_headline) <= (80 if family == "quote-card" else TEMPLATE_COPY_BUDGETS[family][0])
+        assert len(safe_body) <= (140 if family == "quote-card" else TEMPLATE_COPY_BUDGETS[family][1])
+        assert len(prepare_image_overlay_cta(long_cta)) <= 36
+        for size in FORMAT_SIZES.values():
+            rendered = _render_template(
+                original,
+                size,
+                family=family,
+                headline=long_headline,
+                body=long_body,
+                cta=long_cta,
+                website=footer_values["website"],
+                handle=footer_values["handle"],
+                phone=footer_values["phone"],
+                whatsapp=footer_values["whatsapp"],
+                location=footer_values["location"],
+                brand_label=footer_values["brand_label"],
                 logo=None,
                 settings=_settings(),
             )
@@ -115,6 +156,18 @@ def test_service_showcase_uses_editorial_service_layout_and_budgeted_copy():
     assert _template_family_for_category("Product Showcase") == "product-catalog"
     assert len(_image_headline_for_generation(generated, "fashion-editorial")) <= TEMPLATE_COPY_BUDGETS["fashion-editorial"][0]
     assert len(_image_copy_for_generation(generated, "fashion-editorial")) <= TEMPLATE_COPY_BUDGETS["fashion-editorial"][1]
+
+
+def test_image_overlay_copy_is_separate_and_bounded_for_creative_studio():
+    long_headline = "Premium Digital Solutions Tailored for Growth and Better Business Results"
+    long_body = "At Agile Aim Digital Marketing Solutions we build websites, branding, SEO, lead generation, content and social media support for growing businesses."
+    headline, body = prepare_image_overlay_copy("service-editorial", long_headline, long_body)
+
+    assert len(headline) <= TEMPLATE_COPY_BUDGETS["service-editorial"][0]
+    assert len(body) <= TEMPLATE_COPY_BUDGETS["service-editorial"][1]
+    assert headline.endswith("…")
+    assert body.endswith("…")
+    assert len(long_body) > len(body)
 
 
 def test_overlay_budget_is_enforced_for_pathological_copy_across_platforms():

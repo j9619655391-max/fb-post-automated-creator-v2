@@ -33,6 +33,16 @@ const BACKGROUND_PRESETS = [
 
 type BackgroundPreset = typeof BACKGROUND_PRESETS[number]['value'];
 
+const IMAGE_COPY_LIMITS: Record<string, [number, number]> = {
+  'fashion-editorial': [48, 60],
+  'service-editorial': [48, 60],
+  'product-catalog': [48, 60],
+  'technology-explainer': [52, 68],
+  'collection-story': [52, 68],
+  'quote-card': [80, 140],
+};
+const MAX_CTA_CHARS = 36;
+
 export default function CreativeStudio() {
   const { currentOrg } = useOrg();
   const [media, setMedia] = useState<Media[]>([]);
@@ -113,7 +123,7 @@ export default function CreativeStudio() {
       return;
     }
     if (!headline.trim() || !body.trim() || !(caption || body).trim()) {
-      setMessage('Write the headline, image quote/body, and accompanying caption before review.');
+      setMessage('Write the headline, short image text, and accompanying caption before review.');
       return;
     }
     setComposeConfirmed(false);
@@ -244,14 +254,27 @@ export default function CreativeStudio() {
           </div>
           <div>
             <h2 className="font-semibold text-slate-900">3. Write the exact creative copy</h2>
-            <p className="text-sm text-slate-500 mt-1">The headline/body/CTA are printed on the image. The caption, hashtags, and tags are the text that accompanies the image when posted.</p>
+            <p className="text-sm text-slate-500 mt-1">Only the headline, short image text, and CTA appear on the image. Keep them concise for readable hierarchy; the full caption, hashtags, and tags stay outside the image.</p>
           </div>
-          <input value={headline} onChange={(event) => setHeadline(event.target.value)} placeholder="Headline / collection / quote title" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <textarea value={body} onChange={(event) => setBody(event.target.value)} placeholder="Text printed on the image: quote, product detail, styling line, or collection story" rows={4} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <textarea value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Post caption that appears with the image" rows={5} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Headline / title <span className="font-normal text-slate-500">({headline.length}/{IMAGE_COPY_LIMITS[templateFamily]?.[0] ?? 48})</span></label>
+            <input value={headline} maxLength={IMAGE_COPY_LIMITS[templateFamily]?.[0] ?? 48} onChange={(event) => setHeadline(event.target.value)} placeholder="Short headline / collection / quote title" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Short image text <span className="font-normal text-slate-500">({body.length}/{IMAGE_COPY_LIMITS[templateFamily]?.[1] ?? 60})</span></label>
+            <textarea value={body} maxLength={IMAGE_COPY_LIMITS[templateFamily]?.[1] ?? 60} onChange={(event) => setBody(event.target.value)} placeholder="A short benefit, product detail, styling line, or quote — not the full caption" rows={3} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+            <p className="mt-1 text-xs text-slate-500">This is the text printed inside the image. Long explanations belong in the caption below.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Post caption <span className="font-normal text-slate-500">({caption.length} characters)</span></label>
+            <textarea value={caption} onChange={(event) => setCaption(event.target.value)} placeholder="Long-form post caption that appears with the image" rows={5} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
           <input value={hashtags} onChange={(event) => setHashtags(event.target.value)} placeholder={isQuoteWorkspace ? 'Hashtags, comma separated: hinglishquotes, dilkibaat' : 'Hashtags, comma separated: fashion, tailoring, style'} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
           <input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="Tags or mentions, comma separated: @brand, quote community" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
-          <input value={cta} onChange={(event) => setCta(event.target.value)} placeholder={isQuoteWorkspace ? 'CTA: Agar dil ko laga, share karo.' : 'CTA: Book a consultation / WhatsApp us / Visit the studio'} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">Short image CTA <span className="font-normal text-slate-500">({cta.length}/{MAX_CTA_CHARS})</span></label>
+            <input value={cta} maxLength={MAX_CTA_CHARS} onChange={(event) => setCta(event.target.value)} placeholder={isQuoteWorkspace ? 'CTA: Agar dil ko laga, share karo.' : 'CTA: Book a call / WhatsApp us / Visit the studio'} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
+          </div>
           <div className="grid sm:grid-cols-2 gap-3">
             <input value={handle} onChange={(event) => setHandle(event.target.value)} placeholder="Instagram/Facebook handle" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />
             <input value={website} onChange={(event) => setWebsite(event.target.value)} placeholder="Website" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" />

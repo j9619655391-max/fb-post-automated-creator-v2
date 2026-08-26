@@ -33,7 +33,7 @@ from app.schemas.remaining_roadmap import (
 from app.services.performance_service import ingest_metric, summarize_performance
 from app.services.risk_policy_service import assess_content_risk, autopilot_decision, get_or_create_policy
 from app.services.social_listening_service import collect_workspace_signals, create_manual_signal, summarize_signals
-from app.services.media_composer_service import CREATIVE_ARCHETYPE_CATALOG, compose_branded_variants, compose_generated_text_variants
+from app.services.media_composer_service import CREATIVE_ARCHETYPE_CATALOG, compose_branded_variants, compose_generated_text_variants, prepare_image_overlay_copy, prepare_image_overlay_cta
 from app.services.content_package_service import create_content_packages, content_package_payload
 from app.services.media_service import MediaService
 from app.api.routes.workspace_intelligence import _member_or_403
@@ -293,6 +293,8 @@ def compose_complete_social_package(
         )
 
     try:
+        overlay_headline, overlay_body = prepare_image_overlay_copy(payload.template_family, headline, payload.image_text or payload.body or caption)
+        rendered_cta = prepare_image_overlay_cta(payload.cta)
         content = Content(
             title=headline,
             body=caption,
@@ -313,9 +315,9 @@ def compose_complete_social_package(
                 theme_id=payload.theme_id,
                 template_family=payload.template_family,
                 background_preset=payload.background_preset,
-                headline=headline,
-                body=payload.body or caption,
-                cta=payload.cta,
+                headline=overlay_headline,
+                body=overlay_body,
+                cta=rendered_cta,
                 website=payload.website,
                 handle=payload.handle,
                 phone=payload.phone,
@@ -330,9 +332,9 @@ def compose_complete_social_package(
                 theme_id=payload.theme_id,
                 template_family=payload.template_family,
                 background_preset=payload.background_preset,
-                headline=headline,
-                body=payload.body or caption,
-                cta=payload.cta,
+                headline=overlay_headline,
+                body=overlay_body,
+                cta=rendered_cta,
                 website=payload.website,
                 handle=payload.handle,
                 phone=payload.phone,
@@ -356,8 +358,8 @@ def compose_complete_social_package(
             hashtags=payload.hashtags,
             tags=payload.tags,
             media_variant_ids_by_platform={platform: [media.id] for platform, media in variant_by_platform.items()},
-            image_text=payload.image_text or payload.body or headline,
-            alt_text=payload.alt_text or f"{headline}. {payload.image_text or payload.body}",
+            image_text=overlay_body or overlay_headline,
+            alt_text=payload.alt_text or f"{headline}. {overlay_body or overlay_headline}",
             objective=payload.objective,
             creative_archetype=payload.creative_archetype or payload.template_family,
             source_refs=payload.source_refs,
@@ -368,6 +370,9 @@ def compose_complete_social_package(
                 **payload.visual_brief,
                 "template_family": payload.template_family,
                 "background_preset": payload.background_preset,
+                "rendered_headline": overlay_headline,
+                "rendered_image_text": overlay_body or overlay_headline,
+                "rendered_cta": rendered_cta,
             },
             asset_provenance={
                 **payload.asset_provenance,
