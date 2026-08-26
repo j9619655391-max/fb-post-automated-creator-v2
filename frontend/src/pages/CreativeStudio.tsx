@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useOrg } from '../context/OrgContext';
 import { listMedia, uploadMedia, type Media } from '../api/media';
 import { composeCompleteSocialPackage, type CompleteSocialPostPackage, type CompleteSocialPostComposeRequest } from '../api/remainingRoadmap';
+import { getRecommendedCard, getTemplateCards } from '../templateCatalog';
 
 const OBJECTIVE_OPTIONS = [
   { value: 'awareness', label: 'Awareness' },
@@ -49,6 +50,7 @@ export default function CreativeStudio() {
   const [sourceMediaId, setSourceMediaId] = useState<number | ''>('');
   const [useBrandedTextCard, setUseBrandedTextCard] = useState(false);
   const [templateFamily, setTemplateFamily] = useState<CompleteSocialPostComposeRequest['template_family']>('service-editorial');
+  const [selectedCardId, setSelectedCardId] = useState('service-problem-solution');
   const [backgroundPreset, setBackgroundPreset] = useState<BackgroundPreset>('midnight-aurora');
   const [objective, setObjective] = useState('awareness');
   const [creativeArchetype, setCreativeArchetype] = useState('service-announcement');
@@ -78,6 +80,7 @@ export default function CreativeStudio() {
   useEffect(() => {
     if (isQuoteWorkspace) {
       setTemplateFamily('quote-card');
+      setSelectedCardId('quote-editorial');
       setCreativeArchetype('quote-card');
       setObjective('community');
       setUseBrandedTextCard(true);
@@ -86,6 +89,14 @@ export default function CreativeStudio() {
       setCta('Agar dil ko laga, share karo.');
     }
   }, [currentOrg?.id, isQuoteWorkspace]);
+
+  const availableCards = getTemplateCards(undefined, objective, templateFamily);
+  const selectedCard = availableCards.find((item) => item.id === selectedCardId) ?? availableCards[0];
+
+  useEffect(() => {
+    if (!availableCards.length) return;
+    if (!availableCards.some((item) => item.id === selectedCardId)) setSelectedCardId(availableCards[0].id);
+  }, [objective, templateFamily]);
 
   useEffect(() => {
     if (!currentOrg) return;
@@ -148,7 +159,7 @@ export default function CreativeStudio() {
         claim_refs: claimRefs.split(',').map((item) => item.trim()).filter(Boolean),
         source_ref_ids: sourceRefIds.split(',').map((item) => Number(item.trim())).filter((item) => Number.isInteger(item) && item > 0),
         claim_ref_ids: claimRefIds.split(',').map((item) => Number(item.trim())).filter((item) => Number.isInteger(item) && item > 0),
-        visual_brief: { copy_contract: 'image_text_separate_from_caption' },
+        visual_brief: { copy_contract: 'image_text_separate_from_caption', visual_card_id: selectedCard?.id, visual_card_name: selectedCard?.name, card_version: selectedCard?.version },
         asset_provenance: { operator_selected: true },
         headline,
         body,
@@ -190,19 +201,24 @@ export default function CreativeStudio() {
             <h2 className="font-semibold text-slate-900">1. Select visual template</h2>
             <p className="text-sm text-slate-500 mt-1">Choose the layout job before writing the copy.</p>
           </div>
+          <label className="block text-sm font-medium text-slate-700">Rendering family
+            <select value={templateFamily} onChange={(event) => { const nextFamily = event.target.value as CompleteSocialPostComposeRequest['template_family']; setTemplateFamily(nextFamily); const nextCard = getRecommendedCard(undefined, objective, nextFamily); if (nextCard) setSelectedCardId(nextCard.id); }} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 bg-white text-sm">
+              {TEMPLATE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+            </select>
+          </label>
           <div className="grid sm:grid-cols-2 gap-3">
-            {TEMPLATE_OPTIONS.map((option) => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => setTemplateFamily(option.value)}
-                className={`text-left rounded-lg border p-3 transition ${templateFamily === option.value ? 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'}`}
-              >
-                <span className="block text-sm font-semibold text-slate-900">{option.label}</span>
-                <span className="block text-xs text-slate-500 mt-1">{option.description}</span>
+            {availableCards.map((item) => (
+              <button key={item.id} type="button" onClick={() => { setSelectedCardId(item.id); setTemplateFamily(item.family); setCreativeArchetype(item.id); }} className={`overflow-hidden rounded-xl border text-left transition ${selectedCard?.id === item.id ? 'border-indigo-600 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}>
+                <div className="relative h-32 p-3" style={{ background: item.preview.background, color: item.preview.text }}>
+                  <div className="flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.16em] opacity-90"><span>{item.heroLabel}</span><span className="h-3 w-7 rounded-sm" style={{ background: item.preview.accent }} /></div>
+                  <div className="mt-3 flex gap-2"><div className="flex-1 space-y-1.5"><div className="h-2 w-4/5 rounded" style={{ background: item.preview.text }} /><div className="h-1.5 w-full rounded opacity-70" style={{ background: item.preview.muted }} /><div className="h-1.5 w-3/5 rounded opacity-70" style={{ background: item.preview.muted }} /></div><div className="h-14 w-16 rounded-md border border-white/30" style={{ background: item.preview.visual, opacity: 0.86 }} /></div>
+                  <div className="absolute bottom-3 left-3 right-3 flex items-center justify-between"><span className="rounded-full px-2 py-1 text-[8px] font-bold" style={{ background: item.preview.accent, color: item.preview.background }}>{item.ctaExamples[0]}</span><span className="h-1.5 w-12 rounded opacity-70" style={{ background: item.preview.muted }} /></div>
+                </div>
+                <span className="block px-3 py-2.5 bg-white"><span className="block text-sm font-semibold text-slate-900">{item.name}</span><span className="block text-xs leading-tight text-slate-500 mt-1">{item.description}</span><span className="block text-[10px] text-indigo-700 mt-2">Required: {item.requiredAssets.join(' · ')}</span></span>
               </button>
             ))}
           </div>
+          {selectedCard && <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600"><strong>Selected card:</strong> {selectedCard.name}. <strong>Slots:</strong> {selectedCard.slots.join(' · ')}.</p>}
           {templateFamily === 'quote-card' && (
             <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
               <div className="flex items-center justify-between gap-3 mb-3">

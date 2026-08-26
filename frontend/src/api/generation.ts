@@ -18,6 +18,7 @@ export interface GenerateDraftRequest {
   extra_instruction?: string;
   background_preset?: 'midnight-aurora' | 'warm-paper' | 'rose-editorial' | 'sunset-glow' | 'minimal-ink' | 'neon-night';
   organization_id?: number;
+  visual_card_id?: string;
   idempotency_key?: string;
 }
 

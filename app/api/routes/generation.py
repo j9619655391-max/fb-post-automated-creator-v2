@@ -74,6 +74,7 @@ def generate_draft(
             extra_instruction=request.extra_instruction,
             background_preset=request.background_preset,
             organization_id=request.organization_id,
+            visual_card_id=request.visual_card_id,
             idempotency_key=request.idempotency_key,
         )
     except GenerationQuotaExceeded as exc:

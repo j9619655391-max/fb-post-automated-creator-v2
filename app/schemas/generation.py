@@ -9,6 +9,7 @@ class GenerateDraftRequest(BaseModel):
     extra_instruction: Optional[str] = Field(default=None, max_length=2000)
     background_preset: str = Field(default="midnight-aurora", pattern="^(midnight-aurora|warm-paper|rose-editorial|sunset-glow|minimal-ink|neon-night)$")
     organization_id: Optional[int] = None
+    visual_card_id: Optional[str] = Field(default=None, max_length=120, pattern=r"^[a-z0-9-]+$")
     idempotency_key: Optional[str] = Field(default=None, min_length=8, max_length=128)
 
 
