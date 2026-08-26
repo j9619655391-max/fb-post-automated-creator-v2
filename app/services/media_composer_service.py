@@ -31,9 +31,17 @@ FORMAT_SIZES = {
     "instagram": (1080, 1080),
     "linkedin": (1200, 627),
 }
-TEMPLATE_FAMILIES = {"fashion-editorial", "product-catalog", "quote-card", "collection-story"}
+TEMPLATE_FAMILIES = {
+    "fashion-editorial",
+    "service-editorial",
+    "product-catalog",
+    "quote-card",
+    "collection-story",
+    "technology-explainer",
+}
 CREATIVE_ARCHETYPE_CATALOG = {
-    "service-announcement": {"objective": "awareness", "template_family": "fashion-editorial", "asset_requirement": "workspace_media_or_branded_fallback"},
+    "service-announcement": {"objective": "awareness", "template_family": "service-editorial", "asset_requirement": "workspace_media_or_branded_fallback"},
+    "technology-explainer": {"objective": "education", "template_family": "technology-explainer", "asset_requirement": "workspace_media_or_branded_fallback"},
     "educational-explainer": {"objective": "education", "template_family": "collection-story", "asset_requirement": "workspace_media_or_branded_fallback"},
     "product-showcase": {"objective": "product discovery", "template_family": "product-catalog", "asset_requirement": "workspace_media_required"},
     "offer-card": {"objective": "conversion", "template_family": "product-catalog", "asset_requirement": "workspace_media_required"},
@@ -46,7 +54,9 @@ CREATIVE_ARCHETYPE_CATALOG = {
 }
 TEMPLATE_COPY_BUDGETS = {
     "fashion-editorial": (56, 76),
+    "service-editorial": (56, 76),
     "product-catalog": (60, 88),
+    "technology-explainer": (60, 84),
     "quote-card": (140, 140),
     "collection-story": (64, 88),
 }
@@ -467,7 +477,7 @@ def _render_template(
         _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
         return canvas
 
-    if family == "collection-story":
+    if family in {"collection-story", "technology-explainer"}:
         canvas = _draw_gradient_overlay(canvas, 0, 100)
         draw = ImageDraw.Draw(canvas, "RGBA")
         draw.rectangle((0, 0, size[0], int(size[1] * 0.18)), fill=surface)
@@ -493,7 +503,9 @@ def _render_template(
         _draw_footer(draw, canvas, brand_label=brand_label, website=website, handle=handle, phone=phone, whatsapp=whatsapp, location=location, color=surface, accent=accent, font=small)
         return canvas
 
-    # fashion-editorial: image-led service layout with separate, bounded copy zones.
+    # service-editorial and legacy fashion-editorial: image-led service layouts
+    # with separate, bounded copy zones. The neutral alias prevents IT packages
+    # from being mislabeled as fashion while retaining deterministic rendering.
     canvas = _draw_gradient_overlay(canvas, 0, 125)
     draw = ImageDraw.Draw(canvas, "RGBA")
     panel_right = int(size[0] * 0.57)

@@ -5,6 +5,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.content import Content
+from app.models.content_category import ContentCategory
 from app.models.generation_plan import (
 
     ApprovalMode,
@@ -33,9 +34,36 @@ def _ensure_access(db: Session, plan: ContentGenerationPlan, user_id: int) -> No
     raise ValueError("User does not have access to this generation plan")
 
 
+def _resolve_plan_category(db: Session, data) -> tuple[int | None, str | None]:
+    """Normalize workspace plans to the curated category catalog.
+
+    Legacy global plans may still carry a free-text category for compatibility.
+    Workspace plans must resolve to a category row so manual and autopilot flows
+    cannot drift into unrelated labels such as Motivation.
+    """
+    if data.category_id is not None:
+        category = db.query(ContentCategory).filter(ContentCategory.id == data.category_id).first()
+        if category is None:
+            raise ValueError("Selected business category was not found")
+        return category.id, category.name
+    if data.organization_id:
+        requested = (data.category_name or "").strip().casefold()
+        if requested:
+            category = (
+                db.query(ContentCategory)
+                .filter(ContentCategory.name.ilike(requested) | ContentCategory.slug.ilike(requested))
+                .first()
+            )
+            if category:
+                return category.id, category.name
+        raise ValueError("Select a category from the selected workspace catalog")
+    return None, (data.category_name or "").strip() or None
+
+
 def create_plan(db: Session, user_id: int, data) -> ContentGenerationPlan:
     if data.organization_id:
         ContentService(db)._verify_org_access(user_id, data.organization_id)
+    category_id, category_name = _resolve_plan_category(db, data)
     next_run = data.next_run_at
     if not next_run.tzinfo:
         next_run = next_run.replace(tzinfo=timezone.utc)
@@ -46,8 +74,8 @@ def create_plan(db: Session, user_id: int, data) -> ContentGenerationPlan:
         organization_id=data.organization_id,
         created_by_id=user_id,
         name=data.name,
-        category_id=data.category_id,
-        category_name=data.category_name,
+        category_id=category_id,
+        category_name=category_name,
         extra_instruction=data.extra_instruction,
         recurrence=data.recurrence,
         approval_mode=data.approval_mode,

@@ -1,13 +1,19 @@
 import { useEffect, useState } from 'react';
 
 const BUSINESS_OBJECTIVES = [
-  { value: 'service-showcase', label: 'Service showcase', guidance: 'Explain one verified service, solution, or offer and invite a qualified inquiry.' },
+  { value: 'service-showcase', label: 'Service / solution showcase', guidance: 'Explain one verified service or solution, the problem it addresses, and a qualified next step.' },
+  { value: 'software-product', label: 'Software product / SaaS', guidance: 'Show one verified product capability, workflow, or use case without inventing features or results.' },
+  { value: 'digital-build', label: 'Website / custom software build', guidance: 'Present a verified development capability, project approach, or build outcome with a requirements CTA.' },
+  { value: 'cloud-operations', label: 'Cloud / infrastructure / DevOps', guidance: 'Explain a verified infrastructure, hosting, deployment, or operational capability without uptime guarantees.' },
+  { value: 'security-support', label: 'Cybersecurity / IT support', guidance: 'Educate or invite a scoped conversation about security, support, maintenance, or risk—not guaranteed protection.' },
+  { value: 'data-automation', label: 'Data / AI / automation', guidance: 'Show a verified workflow, insight, integration, or automation use case without unsupported savings claims.' },
+  { value: 'technical-education', label: 'Technical education', guidance: 'Teach one practical technology concept, checklist, or implementation lesson for a defined audience.' },
   { value: 'case-study-results', label: 'Case study / results', guidance: 'Use an approved client story, project, or outcome without inventing metrics.' },
   { value: 'educational-howto', label: 'Educational / how-to', guidance: 'Teach a practical idea connected to the selected business and its audience.' },
   { value: 'industry-insights', label: 'Industry insight', guidance: 'Connect a verified trend, research point, or public source to the business context.' },
   { value: 'client-story', label: 'Client story', guidance: 'Share an approved client/customer experience without inventing testimonials or outcomes.' },
   { value: 'company-culture', label: 'Company / team', guidance: 'Show the people, process, or culture behind the business using approved facts.' },
-  { value: 'product-showcase', label: 'Product showcase', guidance: 'Show a specific suit, garment, fabric, cut, embroidery, or design detail and invite an inquiry.' },
+  { value: 'product-showcase', label: 'Fashion product showcase', guidance: 'Show a specific suit, garment, fabric, cut, embroidery, or design detail and invite an inquiry.' },
   { value: 'collection-launch', label: 'Collection launch', guidance: 'Introduce a new collection or seasonal line with a clear fashion-led story and booking CTA.' },
   { value: 'bridal-occasion', label: 'Bridal & occasion wear', guidance: 'Highlight bridal, partywear, ceremony, or event styling with consultation and custom-order intent.' },
   { value: 'styling-tips', label: 'Styling advice', guidance: 'Give a practical styling idea connected to suits, fabrics, colors, fit, or accessories.' },
@@ -22,10 +28,12 @@ const BUSINESS_OBJECTIVES = [
 ];
 
 const VISUAL_TEMPLATES = [
+  { value: 'service-editorial', label: 'Service / solution editorial', guidance: 'Image-led solution layout with a clear problem, capability, benefit, and truthful inquiry CTA.' },
+  { value: 'product-catalog', label: 'Product / software catalog', guidance: 'Product-first layout with one capability, use case, availability or onboarding cue, and CTA.' },
+  { value: 'technology-explainer', label: 'Technology explainer', guidance: 'Structured explainer layout for a workflow, architecture, checklist, integration, or technical insight.' },
+  { value: 'collection-story', label: 'Case study / solution story', guidance: 'Multi-zone composition for context, approved proof, project detail, and a clear next step.' },
   { value: 'fashion-editorial', label: 'Fashion editorial', guidance: 'Premium image-led layout with generous negative space, elegant serif/sans pairing, and a restrained footer.' },
-  { value: 'product-catalog', label: 'Product catalog', guidance: 'Product-first layout with name, fabric/design detail, availability or custom-order cue, and contact CTA.' },
   { value: 'quote-card', label: 'Quote card', guidance: 'Large quote hierarchy with quotation mark, highlighted keywords, logo/handle, and website or WhatsApp footer.' },
-  { value: 'collection-story', label: 'Collection story', guidance: 'Multi-zone composition for collection name, inspiration, hero image, design detail, and consultation CTA.' },
 ];
 
 type QuoteBackgroundValue = 'midnight-aurora' | 'warm-paper' | 'rose-editorial' | 'sunset-glow' | 'minimal-ink' | 'neon-night';
@@ -69,8 +77,8 @@ export default function ContentForm() {
   const [categoryReason, setCategoryReason] = useState('');
   const [categoryEvidence, setCategoryEvidence] = useState<string[]>([]);
 
-  const [businessObjective, setBusinessObjective] = useState('product-showcase');
-  const [visualTemplate, setVisualTemplate] = useState('fashion-editorial');
+  const [businessObjective, setBusinessObjective] = useState('service-showcase');
+  const [visualTemplate, setVisualTemplate] = useState('service-editorial');
   const [backgroundPreset, setBackgroundPreset] = useState<QuoteBackgroundValue>('midnight-aurora');
   const [confirmGenerationOpen, setConfirmGenerationOpen] = useState(false);
   const [generationConfirmed, setGenerationConfirmed] = useState(false);
@@ -138,12 +146,53 @@ export default function ContentForm() {
           'industry-insights': 'industry-insights',
           'client-story': 'client-story',
           'company-culture': 'company-culture',
+          'it-products-technology-solutions': 'software-product',
+          'software-products-saas': 'software-product',
+          'business-software-erp-crm': 'software-product',
+          'custom-software-development': 'digital-build',
+          'website-development': 'digital-build',
+          'ecommerce-development': 'digital-build',
+          'mobile-app-development': 'digital-build',
+          'ui-ux-product-design': 'digital-build',
+          'cloud-infrastructure': 'cloud-operations',
+          'devops-deployment': 'cloud-operations',
+          'cybersecurity': 'security-support',
+          'managed-it-support': 'security-support',
+          'data-ai-automation': 'data-automation',
+          'api-integrations': 'data-automation',
+          'quality-assurance-testing': 'technical-education',
+          'it-consulting-digital-transformation': 'service-showcase',
+          'hosting-domain-maintenance': 'cloud-operations',
+          'hardware-network-solutions': 'service-showcase',
+          'technical-training-enablement': 'technical-education',
           'love-quotes': 'love-quotes',
           'truth-quotes': 'truth-quotes',
           'motivational-quotes': 'motivational-quotes',
           'pain-quotes': 'pain-quotes',
         };
         const templateByCategory: Record<string, string> = {
+          'it-products-technology-solutions': 'product-catalog',
+          'software-products-saas': 'product-catalog',
+          'business-software-erp-crm': 'product-catalog',
+          'data-ai-automation': 'technology-explainer',
+          'api-integrations': 'technology-explainer',
+          'quality-assurance-testing': 'technology-explainer',
+          'technical-training-enablement': 'technology-explainer',
+          'case-study-results': 'collection-story',
+          'client-story': 'collection-story',
+          'service-showcase': 'service-editorial',
+          'custom-software-development': 'service-editorial',
+          'website-development': 'service-editorial',
+          'ecommerce-development': 'service-editorial',
+          'mobile-app-development': 'service-editorial',
+          'ui-ux-product-design': 'service-editorial',
+          'cloud-infrastructure': 'service-editorial',
+          'devops-deployment': 'service-editorial',
+          'cybersecurity': 'service-editorial',
+          'managed-it-support': 'service-editorial',
+          'it-consulting-digital-transformation': 'service-editorial',
+          'hosting-domain-maintenance': 'service-editorial',
+          'hardware-network-solutions': 'service-editorial',
           'love-quotes': 'quote-card',
           'truth-quotes': 'quote-card',
           'motivational-quotes': 'quote-card',
@@ -360,7 +409,7 @@ export default function ContentForm() {
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
               </select>
-                            {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Restart the local app once to seed business-aware fashion categories.</p>}
+                            {categories.length === 0 && !themesLoading && <p className="text-slate-500 text-sm mb-2">No categories yet. Restart the local app once to seed the business and IT category catalog.</p>}
               {selectedCategory && <p className="mb-3 rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs text-indigo-800"><strong>Workspace recommendation:</strong> {categoryReason}{categoryEvidence.length > 0 && ` Evidence: ${categoryEvidence.join(', ')}.`}</p>}
               <div className="grid md:grid-cols-2 gap-3 mb-3">
                 <div>
@@ -452,13 +501,13 @@ export default function ContentForm() {
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-700">Final creative check</p>
                   <h2 id="confirm-generation-title" className="mt-1 text-lg font-semibold text-amber-950">Confirm before creating the image</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-amber-900">This will create exactly one unscheduled draft for <strong>{currentOrg?.name || 'the selected workspace'}</strong> using <strong>{selectedCategory?.name || 'the selected category'}</strong>, <strong>{QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label}</strong>, and the <strong>{visualTemplate}</strong> layout. It will not publish, schedule, boost, send to Telegram, or submit for approval.</p>
+                  <p className="mt-2 text-sm leading-relaxed text-amber-900">This will create exactly one unscheduled draft for <strong>{currentOrg?.name || 'the selected workspace'}</strong> using <strong>{selectedCategory?.name || 'the selected category'}</strong>, the <strong>{BUSINESS_OBJECTIVES.find((item) => item.value === businessObjective)?.label || businessObjective}</strong> objective, and the <strong>{VISUAL_TEMPLATES.find((item) => item.value === visualTemplate)?.label || visualTemplate}</strong> layout{visualTemplate === 'quote-card' ? ` with the ${QUOTE_BACKGROUNDS.find((item) => item.value === backgroundPreset)?.label} background` : ''}. It will not publish, schedule, boost, send to Telegram, or submit for approval.</p>
                 </div>
                 <button type="button" onClick={() => setConfirmGenerationOpen(false)} className="rounded-md px-2 py-1 text-amber-800 hover:bg-amber-100" aria-label="Close confirmation">Close</button>
               </div>
               <label className="mt-4 flex items-start gap-2 text-sm text-amber-950">
                 <input type="checkbox" checked={generationConfirmed} onChange={(event) => setGenerationConfirmed(event.target.checked)} className="mt-1" />
-                <span>I reviewed the category, quote style, background template, and language direction. Create one draft image package now.</span>
+                <span>I reviewed the workspace category, business objective, visual template, and language direction. Create one draft image package now.</span>
               </label>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={confirmAndGenerateDraft} disabled={!generationConfirmed || generatingDraft} className="rounded-lg bg-amber-700 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-800 disabled:opacity-50">{generatingDraft ? 'Creating one draft...' : 'Confirm & create one draft'}</button>

@@ -22,6 +22,7 @@ export interface GenerationPlan {
 
 export interface GenerationPlanCreate {
   name: string;
+  category_id?: number;
   category_name?: string;
   extra_instruction?: string;
   organization_id?: number;
