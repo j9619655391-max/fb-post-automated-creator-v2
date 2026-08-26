@@ -22,14 +22,34 @@ _CATEGORY_SIGNALS: dict[str, tuple[str, ...]] = {
     "fabric-craft": ("fashion", "fabric", "craft", "tailor", "embroidery", "garment", "apparel"),
     "fashion-quote": ("fashion", "style", "wardrobe", "designer", "tailor"),
     "seasonal-festival": ("fashion", "festival", "seasonal", "holiday", "occasion"),
-    "service-showcase": ("service", "solution", "agency", "consulting", "consultancy", "marketing", "digital", "software", "technology", "it", "jobs", "overseas", "education"),
-    "case-study-results": ("case", "result", "client", "portfolio", "agency", "marketing", "solution", "consulting"),
+    "service-showcase": ("service", "solution", "agency", "consulting", "consultancy", "marketing", "digital", "technology", "it", "jobs", "overseas", "education"),
+    "case-study-results": ("case", "result", "client", "portfolio", "agency", "marketing", "solution", "consulting", "project"),
     "educational-howto": ("education", "training", "guide", "how", "tips", "marketing", "technology", "software", "consulting", "student"),
     "industry-insights": ("industry", "insight", "research", "news", "marketing", "technology", "software", "digital", "finance", "jobs"),
     "client-story": ("client", "customer", "testimonial", "case", "service", "consulting", "agency"),
     "company-culture": ("team", "company", "culture", "hiring", "jobs", "organization"),
-    "behind-the-scenes": ("behind", "process", "team", "craft", "studio", "agency", "fashion"),
+    "behind-the-scenes": ("behind", "process", "team", "craft", "studio", "agency", "fashion", "development"),
     "offer-booking": ("offer", "booking", "consultation", "appointment", "service", "fashion", "marketing"),
+    # IT and technology-business signals. More specific terms deliberately outrank generic service.
+    "it-products-technology-solutions": ("it products", "technology solutions", "software", "technology", "hardware", "infrastructure", "digital solutions"),
+    "software-products-saas": ("software", "saas", "platform", "application", "app", "subscription", "product"),
+    "business-software-erp-crm": ("erp", "crm", "inventory", "accounting", "workflow", "business software"),
+    "custom-software-development": ("custom software", "software development", "application development", "development", "programming"),
+    "website-development": ("website", "web development", "web design", "landing page", "website development"),
+    "ecommerce-development": ("ecommerce", "e-commerce", "online store", "shopify", "commerce"),
+    "mobile-app-development": ("mobile", "mobile app", "android", "ios", "app development"),
+    "ui-ux-product-design": ("ui", "ux", "user experience", "product design", "interface", "figma"),
+    "cloud-infrastructure": ("cloud", "infrastructure", "hosting", "server", "aws", "azure", "gcp"),
+    "devops-deployment": ("devops", "deployment", "ci/cd", "continuous delivery", "docker", "kubernetes"),
+    "cybersecurity": ("cybersecurity", "cyber security", "security", "firewall", "vulnerability", "compliance"),
+    "managed-it-support": ("it support", "managed services", "helpdesk", "maintenance", "technical support", "msps"),
+    "data-ai-automation": ("data", "analytics", "ai", "automation", "machine learning", "reporting"),
+    "api-integrations": ("api", "integration", "integrations", "webhook", "system integration"),
+    "quality-assurance-testing": ("qa", "testing", "quality assurance", "automation testing", "test cases"),
+    "it-consulting-digital-transformation": ("it consulting", "digital transformation", "technology consulting", "roadmap", "strategy"),
+    "hosting-domain-maintenance": ("domain", "hosting", "website maintenance", "ssl", "backup"),
+    "hardware-network-solutions": ("hardware", "network", "router", "switch", "wifi", "device"),
+    "technical-training-enablement": ("technical training", "enablement", "workshop", "certification", "training"),
     "love-quotes": ("love", "romance", "relationship", "ishq", "pyaar", "mohabbat", "quotes", "quote"),
     "truth-quotes": ("truth", "reality", "sach", "haqeeqat", "quotes", "quote"),
     "motivational-quotes": ("motivational", "motivation", "inspiration", "inspirational", "hustle", "growth", "quotes", "quote"),
@@ -81,12 +101,20 @@ def _category_score(category: ContentCategory, signal_text: str) -> int:
     tokens = set(re.findall(r"[a-z0-9]+", signal_text))
     score = 0
     for signal in _CATEGORY_SIGNALS.get(category.slug, ()):
-        if signal in tokens or signal in signal_text:
+        if signal in tokens or (len(signal) > 3 and signal in signal_text):
             score += 3 if len(signal) > 3 else 1
     if category.slug in {"motivation", "reflection"}:
         score -= 12
     if category.slug == "tips" and any(term in signal_text for term in ("marketing", "technology", "education", "fashion")):
         score += 2
+    # Do not let the broad service bucket hide a more truthful IT category.
+    # A workspace that names software/web/cloud/security offerings should be
+    # routed to a specific technology category when one is available.
+    if category.slug == "service-showcase" and any(
+        term in signal_text
+        for term in ("software", "website", "web development", "cloud", "infrastructure", "cybersecurity", "cyber security", "devops", "mobile app", "api")
+    ):
+        score -= 8
     return score
 
 

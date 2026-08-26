@@ -1,6 +1,33 @@
 from datetime import datetime, timedelta, timezone
 
 
+from types import SimpleNamespace
+
+import pytest
+
+from app.services.generation_plan_service import _resolve_plan_category
+from scripts.init_db import _seed_categories as seed_categories_for_test
+
+
+def test_workspace_plan_category_is_resolved_from_catalog(db):
+    seed_categories_for_test(db)
+    db.commit()
+
+    category_id, category_name = _resolve_plan_category(
+        db,
+        SimpleNamespace(organization_id=1, category_id=None, category_name="Website Development"),
+    )
+
+    assert category_id is not None
+    assert category_name == "Website Development"
+
+    with pytest.raises(ValueError, match="workspace catalog"):
+        _resolve_plan_category(
+            db,
+            SimpleNamespace(organization_id=1, category_id=None, category_name="Motivation That Is Not A Category"),
+        )
+
+
 def test_generation_plan_lifecycle(client, api, auth_headers):
     response = client.post(
         f"{api}/generation-plans/",

@@ -106,7 +106,12 @@ def test_service_showcase_uses_editorial_service_layout_and_budgeted_copy():
         "body": "A full caption that must remain outside the image composition.",
     }
 
-    assert _template_family_for_category("Service Showcase") == "fashion-editorial"
+    assert _template_family_for_category("Service Showcase") == "service-editorial"
+    assert _template_family_for_category("Website Development") == "service-editorial"
+    assert _template_family_for_category("Cloud & Infrastructure") == "service-editorial"
+    assert _template_family_for_category("IT Products & Technology Solutions") == "product-catalog"
+    assert _template_family_for_category("Software Products & SaaS") == "product-catalog"
+    assert _template_family_for_category("Educational / How-to") == "technology-explainer"
     assert _template_family_for_category("Product Showcase") == "product-catalog"
     assert len(_image_headline_for_generation(generated, "fashion-editorial")) <= TEMPLATE_COPY_BUDGETS["fashion-editorial"][0]
     assert len(_image_copy_for_generation(generated, "fashion-editorial")) <= TEMPLATE_COPY_BUDGETS["fashion-editorial"][1]
@@ -119,7 +124,7 @@ def test_overlay_budget_is_enforced_for_pathological_copy_across_platforms():
         rendered = _render_template(
             original,
             size,
-            family="fashion-editorial",
+            family="service-editorial",
             headline=long_copy,
             body=long_copy,
             cta="Visit the website to request a consultation and discuss your next project",

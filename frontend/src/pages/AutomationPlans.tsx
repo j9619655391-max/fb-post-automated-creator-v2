@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useOrg } from '../context/OrgContext';
+import { getCategories, type ContentCategory } from '../api/vce';
 import {
   createGenerationPlan,
   listGenerationPlans,
@@ -19,7 +20,8 @@ export default function AutomationPlans() {
   const { currentOrg } = useOrg();
   const [plans, setPlans] = useState<GenerationPlan[]>([]);
   const [name, setName] = useState('Daily content draft');
-  const [category, setCategory] = useState('Motivation');
+  const [categories, setCategories] = useState<ContentCategory[]>([]);
+  const [categoryId, setCategoryId] = useState<number | ''>('');
   const [recurrence, setRecurrence] = useState<'daily' | 'weekly'>('daily');
   const [nextRunAt, setNextRunAt] = useState(defaultRunAt());
   const [loading, setLoading] = useState(true);
@@ -41,14 +43,33 @@ export default function AutomationPlans() {
     refresh();
   }, [currentOrg]);
 
+  useEffect(() => {
+    if (!currentOrg?.id) {
+      setCategories([]);
+      setCategoryId('');
+      return;
+    }
+    getCategories(currentOrg.id)
+      .then((items) => {
+        setCategories(items);
+        setCategoryId((current) => current !== '' && items.some((item) => item.id === current) ? current : (items[0]?.id ?? ''));
+      })
+      .catch(() => {
+        setCategories([]);
+        setCategoryId('');
+      });
+  }, [currentOrg?.id]);
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     setError('');
     try {
+      const selectedCategory = categories.find((item) => item.id === categoryId);
       await createGenerationPlan({
         name,
-        category_name: category || undefined,
+        category_id: categoryId === '' ? undefined : categoryId,
+        category_name: selectedCategory?.name,
         organization_id: currentOrg?.id,
         recurrence,
         approval_mode: 'required',
@@ -98,8 +119,17 @@ export default function AutomationPlans() {
             <input value={name} onChange={(e) => setName(e.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
           </label>
           <label className="text-sm text-slate-700">
-            Category
-            <input value={category} onChange={(e) => setCategory(e.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
+            Business category
+            <select
+              value={categoryId === '' ? '' : categoryId}
+              onChange={(e) => setCategoryId(e.target.value === '' ? '' : parseInt(e.target.value, 10))}
+              required={Boolean(currentOrg?.id)}
+              className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 bg-white"
+            >
+              <option value="">Select a workspace category...</option>
+              {categories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
+            </select>
+            <span className="mt-1 block text-xs text-slate-500">Categories come from the selected workspace catalog. Free-text categories are not used for workspace autopilot.</span>
           </label>
           <label className="text-sm text-slate-700">
             Recurrence
@@ -113,7 +143,7 @@ export default function AutomationPlans() {
             <input type="datetime-local" value={nextRunAt} onChange={(e) => setNextRunAt(e.target.value)} required className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2" />
           </label>
         </div>
-        <button type="submit" disabled={saving} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
+        <button type="submit" disabled={saving || (Boolean(currentOrg?.id) && categoryId === '')} className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
           {saving ? 'Creating...' : 'Create approval-required plan'}
         </button>
       </form>

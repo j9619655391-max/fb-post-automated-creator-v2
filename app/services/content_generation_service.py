@@ -142,21 +142,27 @@ def _is_hinglish_quote_workspace(db: Session, organization_id: Optional[int]) ->
 
 
 def _template_family_for_category(category_label: str) -> str:
-    normalized = category_label.lower()
+    normalized = category_label.casefold()
     if "quote" in normalized or "reflection" in normalized:
         return "quote-card"
-    if "collection" in normalized or "story" in normalized:
+    if "collection" in normalized or "story" in normalized or "case study" in normalized:
         return "collection-story"
-    if "product showcase" in normalized:
+    if any(term in normalized for term in ("fashion", "bridal", "styling", "fabric", "garment")):
+        return "fashion-editorial"
+    if any(term in normalized for term in ("product showcase", "it products", "software product", "saas", "erp", "crm", "e-commerce", "ecommerce")):
         return "product-catalog"
-    # Service/offer/booking creatives are editorial service announcements, not
-    # product cards. This keeps their copy in the image-safe service layout.
-    return "fashion-editorial"
+    if any(term in normalized for term in ("educational", "training", "data, ai", "industry insight", "how-to")):
+        return "technology-explainer"
+    # Business services and technical implementation work use a neutral
+    # solution layout, not a fashion-named family.
+    return "service-editorial"
 
 
 _IMAGE_COPY_BUDGETS = {
     "fashion-editorial": (56, 76),
+    "service-editorial": (56, 76),
     "product-catalog": (60, 88),
+    "technology-explainer": (60, 84),
     "quote-card": (140, 140),
     "collection-story": (64, 88),
 }
@@ -177,14 +183,16 @@ def _image_headline_for_generation(generated: dict[str, Any], template_family: s
 
 def _objective_for_category(category_label: str) -> str:
     normalized = category_label.casefold()
-    if "case study" in normalized or "customer" in normalized:
+    if "case study" in normalized or "customer" in normalized or "client" in normalized:
         return "proof"
-    if "offer" in normalized or "booking" in normalized or "consultation" in normalized:
+    if any(term in normalized for term in ("offer", "booking", "consultation", "lead", "e-commerce", "ecommerce")):
         return "conversion"
-    if "insight" in normalized or "educational" in normalized or "tips" in normalized:
+    if any(term in normalized for term in ("insight", "educational", "tips", "training", "data, ai", "quality assurance")):
         return "education"
-    if "collection" in normalized or "bridal" in normalized or "styling" in normalized:
+    if any(term in normalized for term in ("it products", "software product", "saas", "erp", "crm", "product showcase", "collection", "bridal", "styling")):
         return "product discovery"
+    if any(term in normalized for term in ("website", "custom software", "mobile app", "ui/ux", "cloud", "devops", "cybersecurity", "support", "api", "consulting", "hosting", "hardware")):
+        return "lead generation"
     if "quote" in normalized or "motivation" in normalized or "reflection" in normalized:
         return "community"
     return "awareness"
@@ -192,8 +200,10 @@ def _objective_for_category(category_label: str) -> str:
 
 def _creative_archetype_for_template(template_family: str) -> str:
     return {
-        "fashion-editorial": "service-announcement",
+        "fashion-editorial": "fashion-editorial",
+        "service-editorial": "service-announcement",
         "product-catalog": "product-showcase",
+        "technology-explainer": "technology-explainer",
         "quote-card": "quote-card",
         "collection-story": "collection-story",
     }.get(template_family, "service-announcement")
