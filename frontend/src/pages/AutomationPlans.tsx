@@ -157,6 +157,7 @@ export default function AutomationPlans() {
             <div>
               <h3 className="font-semibold text-slate-900">{plan.name}</h3>
               <p className="text-sm text-slate-500">{plan.recurrence} · {plan.category_name || 'general'} · next run {new Date(plan.next_run_at).toLocaleString()}</p>
+              {!plan.category_id && plan.organization_id && <p className="mt-2 text-xs font-semibold text-amber-700">Needs category review before autopilot can run</p>}
               <span className={`inline-block mt-2 text-xs px-2 py-1 rounded-full ${plan.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
                 {plan.status === 'active' ? 'Active' : 'Paused'} · approval required
               </span>

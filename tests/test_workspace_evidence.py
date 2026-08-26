@@ -1,6 +1,9 @@
 import pytest
+from PIL import Image
 
 from app.models.content import Content, ContentStatus
+from app.models.media import Media
+from app.services.media_composer_service import FORMAT_SIZES
 from app.models.content_package import ContentPackage
 from app.models.organization import Organization
 from app.models.user import User
@@ -42,7 +45,7 @@ def test_only_approved_active_evidence_can_be_attached(db):
         create_content_packages(db, content.id, organization.id, ["facebook"], source_ref_ids=[pending_source.id])
 
 
-def test_verified_evidence_is_persisted_per_platform(db):
+def test_verified_evidence_is_persisted_per_platform(db, tmp_path):
     _, organization, content = _workspace(db)
     source = WorkspaceSource(
         organization_id=organization.id,
@@ -67,6 +70,23 @@ def test_verified_evidence_is_persisted_per_platform(db):
     db.add(WorkspaceClaimSource(claim_id=claim.id, source_id=source.id))
     db.commit()
 
+    media_variant_ids_by_platform = {}
+    for platform, size in FORMAT_SIZES.items():
+        path = tmp_path / f"{platform}.png"
+        Image.new("RGB", size, (32, 48, 64)).save(path, format="PNG")
+        media = Media(
+            filename=f"{platform}.png",
+            stored_path=str(path),
+            mime_type="image/png",
+            file_size=path.stat().st_size,
+            organization_id=organization.id,
+            user_id=organization.created_by_id,
+        )
+        db.add(media)
+        db.flush()
+        media_variant_ids_by_platform[platform] = [media.id]
+    db.commit()
+
     packages = create_content_packages(
         db,
         content.id,
@@ -74,6 +94,8 @@ def test_verified_evidence_is_persisted_per_platform(db):
         ["facebook", "instagram", "linkedin"],
         source_ref_ids=[source.id],
         claim_ref_ids=[claim.id],
+        media_variant_ids_by_platform=media_variant_ids_by_platform,
+        asset_provenance={"mode": "workspace_media"},
     )
 
     assert len(packages) == 3

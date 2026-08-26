@@ -8,15 +8,18 @@ const OBJECTIVE_OPTIONS = [
   { value: 'education', label: 'Education' },
   { value: 'product discovery', label: 'Product discovery' },
   { value: 'conversion', label: 'Conversion / inquiry' },
+  { value: 'lead generation', label: 'Lead generation' },
   { value: 'proof', label: 'Proof / case study' },
   { value: 'community', label: 'Community / quote' },
 ] as const;
 
 const TEMPLATE_OPTIONS = [
+  { value: 'service-editorial', label: 'Service / solution editorial', description: 'Image-led solution card with a clear capability, benefit, and truthful CTA.' },
+  { value: 'product-catalog', label: 'Product / software catalog', description: 'Product-first card with one capability, use case, and inquiry CTA.' },
+  { value: 'technology-explainer', label: 'Technology explainer', description: 'Structured visual for a workflow, integration, checklist, or technical insight.' },
+  { value: 'collection-story', label: 'Case study / solution story', description: 'Context, approved proof, project detail, and next-step zones.' },
   { value: 'fashion-editorial', label: 'Fashion editorial', description: 'Premium image-led card with an elegant text-safe panel.' },
-  { value: 'product-catalog', label: 'Product catalog', description: 'Product-first card with design details and inquiry CTA.' },
   { value: 'quote-card', label: 'Quote card', description: 'Large quote, quotation mark, highlighted identity, and footer.' },
-  { value: 'collection-story', label: 'Collection story', description: 'Stacked collection title, inspiration, quote, and CTA zones.' },
 ] as const;
 
 const BACKGROUND_PRESETS = [
@@ -35,7 +38,7 @@ export default function CreativeStudio() {
   const [media, setMedia] = useState<Media[]>([]);
   const [sourceMediaId, setSourceMediaId] = useState<number | ''>('');
   const [useBrandedTextCard, setUseBrandedTextCard] = useState(false);
-  const [templateFamily, setTemplateFamily] = useState<CompleteSocialPostComposeRequest['template_family']>('fashion-editorial');
+  const [templateFamily, setTemplateFamily] = useState<CompleteSocialPostComposeRequest['template_family']>('service-editorial');
   const [backgroundPreset, setBackgroundPreset] = useState<BackgroundPreset>('midnight-aurora');
   const [objective, setObjective] = useState('awareness');
   const [creativeArchetype, setCreativeArchetype] = useState('service-announcement');
@@ -48,7 +51,7 @@ export default function CreativeStudio() {
   const [headline, setHeadline] = useState('');
   const [body, setBody] = useState('');
   const [caption, setCaption] = useState('');
-  const [hashtags, setHashtags] = useState('fashion, style, tailoring');
+  const [hashtags, setHashtags] = useState('business, technology, digital');
   const [tags, setTags] = useState('');
   const [cta, setCta] = useState('Message us for a consultation');
   const [website, setWebsite] = useState('');
@@ -106,7 +109,7 @@ export default function CreativeStudio() {
     event.preventDefault();
     if (!currentOrg) return;
     if (sourceMediaId === '' && !useBrandedTextCard) {
-      setMessage('Choose or upload a workspace-owned image, or enable the branded quote text-card.');
+      setMessage('Choose or upload a workspace-owned image, or enable the branded quote text-card for a quote-card only.');
       return;
     }
     if (!headline.trim() || !body.trim() || !(caption || body).trim()) {
@@ -166,7 +169,7 @@ export default function CreativeStudio() {
       <div>
         <p className="text-xs font-black tracking-widest text-indigo-600">CREATIVE STUDIO</p>
         <h1 className="text-2xl font-semibold text-slate-900 mt-1">Business-aware branded templates</h1>
-        <p className="text-slate-500 mt-2">Create quote cards, suit showcases, collection stories, and consultation creatives for {currentOrg.name}. The studio uses your exact copy and configured business details; it does not invent prices or contact information.</p>
+        <p className="text-slate-500 mt-2">Create image-first service, product, software, technology, fashion, or quote packages for {currentOrg.name}. The studio uses your exact copy and configured business details; it does not invent prices or contact information.</p>
       </div>
 
       {message && <div className="rounded-lg bg-indigo-50 text-indigo-800 px-4 py-3 text-sm">{message}</div>}

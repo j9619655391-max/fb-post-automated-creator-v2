@@ -146,6 +146,8 @@ def run_plan(db: Session, plan: ContentGenerationPlan) -> ContentGenerationPlan:
     if plan.status != GenerationPlanStatus.ACTIVE or not plan.active:
         return plan
     if plan.organization_id:
+        if not plan.category_id:
+            raise ValueError("Workspace automation plan requires a curated business category before it can run")
         policy = get_or_create_policy(db, plan.organization_id)
         if policy.emergency_stop:
             raise ValueError("Workspace emergency stop is active")

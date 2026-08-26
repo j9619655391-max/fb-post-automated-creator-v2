@@ -4,6 +4,7 @@ from typing import List, Optional
 from datetime import datetime, timezone
 
 from app.models.content import Content, ContentStatus
+from app.models.content_package import ContentPackage
 from app.models.scheduled_post import ScheduledPlatform
 from app.schemas.content import ContentCreate, ContentUpdate, ContentApprovalRequest
 from app.services.audit_service import AuditService
@@ -191,6 +192,42 @@ class ContentService:
         
         return content
     
+    def _assert_image_first_ready(self, content: Content) -> None:
+        """Require a complete image package before a workspace post can advance."""
+        if not content.organization_id:
+            # The universal image-first contract applies to workspace content;
+            # legacy personal drafts remain available for private editing.
+            return
+        packages = (
+            self.db.query(ContentPackage)
+            .filter(
+                ContentPackage.source_content_id == content.id,
+                ContentPackage.organization_id == content.organization_id,
+            )
+            .all()
+        )
+        by_platform = {package.platform: package for package in packages}
+        missing = [platform for platform in ("facebook", "instagram", "linkedin") if platform not in by_platform]
+        if missing:
+            raise ValueError("Image-first package is incomplete; missing: " + ", ".join(missing))
+        import json
+        for platform, package in by_platform.items():
+            try:
+                media_ids = json.loads(package.media_variant_ids_json or "[]")
+            except (TypeError, json.JSONDecodeError):
+                media_ids = []
+            if not isinstance(media_ids, list) or not media_ids:
+                raise ValueError(f"Image-first package for {platform} has no image variant")
+            provenance = {}
+            try:
+                provenance = json.loads(package.asset_provenance_json or "{}")
+            except (TypeError, json.JSONDecodeError):
+                pass
+            if not isinstance(provenance, dict) or provenance.get("mode") in {None, "", "not_available"}:
+                raise ValueError(f"Image-first package for {platform} has no asset provenance")
+            if package.visual_qa_status != "structural_pass":
+                raise ValueError(f"Image-first package for {platform} has not passed structural visual QA")
+
     def submit_for_approval(self, content_id: int, user_id: int) -> Optional[Content]:
         """Submit content for approval."""
         content = self.get_content(content_id)
@@ -203,6 +240,7 @@ class ContentService:
             raise ValueError("Only draft content can be submitted for approval")
         
         assess_content_risk(content)
+        self._assert_image_first_ready(content)
         if content.risk_tier == "critical":
             raise ValueError("Content requires policy review before approval submission")
         content.status = ContentStatus.PENDING_APPROVAL
@@ -260,6 +298,7 @@ class ContentService:
                 raise ValueError("Scheduled publishing time must be in the future")
         
         if approval_data.approved:
+            self._assert_image_first_ready(content)
             content.status = ContentStatus.APPROVED
             content.approved_by_id = approver_id
             content.approved_at = datetime.now(timezone.utc)

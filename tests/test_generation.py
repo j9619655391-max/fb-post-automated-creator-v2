@@ -40,6 +40,14 @@ class FakeGenerationClient:
 
 
 def test_generate_complete_draft_persists_provenance_and_usage(client, api, auth_headers, monkeypatch):
+    organization_response = client.post(
+        f"{api}/organizations/",
+        headers=auth_headers,
+        json={"name": "Generation Workspace", "slug": "generation-workspace"},
+    )
+    assert organization_response.status_code == 201, organization_response.text
+    organization_id = organization_response.json()["id"]
+
     monkeypatch.setattr(
         content_generation_service,
         "get_client",
@@ -52,6 +60,7 @@ def test_generate_complete_draft_persists_provenance_and_usage(client, api, auth
         json={
             "category_name": "Motivation",
             "extra_instruction": "Focus on practical morning habits.",
+            "organization_id": organization_id,
             "idempotency_key": "generation-test-001",
         },
     )

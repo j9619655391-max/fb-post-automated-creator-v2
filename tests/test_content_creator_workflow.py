@@ -1,7 +1,11 @@
+from PIL import Image
+
 from app.models.content import Content, ContentStatus
+from app.models.media import Media
 from app.models.organization import Organization
 from app.models.workspace_intelligence import WorkspaceProfile
 from app.services.content_package_service import create_content_packages
+from app.services.media_composer_service import FORMAT_SIZES
 from app.services import telegram_approval_service
 
 
@@ -17,7 +21,7 @@ def _workspace(db):
     return user, organization
 
 
-def test_content_packages_create_platform_variants(db):
+def test_content_packages_create_platform_variants(db, tmp_path):
     user, organization = _workspace(db)
     content = Content(
         title="Fresh business insight",
@@ -29,11 +33,30 @@ def test_content_packages_create_platform_variants(db):
     db.add(content)
     db.commit()
 
+    media_variant_ids_by_platform = {}
+    for platform, size in FORMAT_SIZES.items():
+        path = tmp_path / f"{platform}.png"
+        Image.new("RGB", size, (48, 64, 80)).save(path, format="PNG")
+        media = Media(
+            filename=f"{platform}.png",
+            stored_path=str(path),
+            mime_type="image/png",
+            file_size=path.stat().st_size,
+            organization_id=organization.id,
+            user_id=user.id,
+        )
+        db.add(media)
+        db.flush()
+        media_variant_ids_by_platform[platform] = [media.id]
+    db.commit()
+
     packages = create_content_packages(
         db,
         content.id,
         organization.id,
         ["facebook", "instagram", "linkedin"],
+        media_variant_ids_by_platform=media_variant_ids_by_platform,
+        asset_provenance={"mode": "workspace_media"},
     )
 
     assert {package.platform for package in packages} == {"facebook", "instagram", "linkedin"}
